@@ -1,0 +1,11 @@
+node_modules/
+dist/
+target/
+src-tauri/target/
+.tauri/
+coverage/
+test-results/
+playwright-report/
+*.log
+.impeccable/questions/
+

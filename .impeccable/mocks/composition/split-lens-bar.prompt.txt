@@ -1,0 +1,20 @@
+Use case: ui-mockup
+Asset type: high-fidelity, implementation-ready composition option for a compact native Windows 11 Codex quota desktop floating widget.
+Input image: visual-world reference only. Preserve its dark navy optical liquid-glass material, cyan/mint liquid illumination, disciplined typography, restrained depth, and believable Windows desktop context. Do not copy its two separate-card topology.
+Primary request: Design one single ultra-wide horizontal optical-glass capsule floating over a softly blurred, low-contrast Windows 11 coding desktop. The capsule is compact and plausible as a real always-on-top desktop utility, approximately 4.2:1 in its own width-to-height ratio. A thin vertical refractive optical seam at the exact center divides the capsule into two perfectly equal-width capacity domains. The left and right quota domains must have identical visual weight, identical typography scale, identical padding, and mirrored information hierarchy.
+Composition/framing: landscape desktop screenshot. Center the compact capsule with generous surrounding desktop context. The entire utility is one continuous outer glass body, not two cards. Within each equal half, arrange the quota label at top, a large percentage-and-LEFT line as the dominant metric, and the reset line below. Use a nearly invisible shared footer band across the full capsule: FULL RESETS 2 at left, Updated now near right, and exactly one quiet expand control at the far right. No title bar.
+Materials/textures: physically believable dark navy-blue translucent liquid glass; precision rounded capsule edge; subtle refraction and internal reflections; very restrained soft elevation shadow; no decorative glow halo. Cyan liquid occupies 76% of the left capacity domain and mint/teal liquid occupies 42% of the right domain, each with a fine luminous liquid meniscus and tiny calibrated tick marks integrated near the lower edge. The center split is a narrow refractive seam, not an opaque divider. Maintain excellent white text contrast.
+Typography: crisp modern humanist sans-serif suitable for Windows 11; tabular numerals; careful spacing; all text fully readable, correctly spelled, and rendered verbatim. 5 HOUR and WEEK are equal size and weight. 76% LEFT and 42% LEFT are equal size and weight.
+Text (verbatim, no other words):
+"5 HOUR"
+"76% LEFT"
+"Resets 14:32"
+"WEEK"
+"42% LEFT"
+"Resets Tue 09:00"
+"FULL RESETS 2"
+"Updated now"
+Interaction: show only one quiet, small, professional expand icon/control at the far-right footer; no other controls.
+Implementation realism: this must look like a shippable Tauri/React Windows 11 desktop widget that can be implemented with layered CSS/SVG/backdrop blur. Keep geometry clean and component boundaries obvious. This is a UI design mockup, not a poster, not concept art, not a marketing render.
+Constraints: exactly two equal capacity domains inside one shared capsule; equal hierarchy for 5 HOUR and WEEK; preserve every exact text string; compact footprint; clear scanability at 125% Windows scaling; no invented data.
+Avoid: separate cards, nested cards, circular gauges, progress rings, charts, sparklines, dashboard grid, title bar, app logo, menu, settings gear, close/minimize buttons, extra icons, extra text, gradient text, purple palette, cyberpunk neon, gaming HUD, sci-fi console, opaque large panel, exaggerated bloom, ornamental particles, poster composition, watermark.
