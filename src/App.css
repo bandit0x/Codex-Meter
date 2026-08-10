@@ -1,0 +1,435 @@
+:root {
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  color: #f6fcff;
+  background: transparent;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  --glass-deep: rgba(7, 19, 30, 0.78);
+  --glass-edge: rgba(180, 230, 255, 0.28);
+  --text-secondary: #afc3d2;
+  --cyan: #50d8ff;
+  --mint: #74efd2;
+  --danger: #ff8067;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+button {
+  font: inherit;
+}
+
+.app-frame {
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  display: grid;
+  place-items: center;
+  user-select: none;
+}
+
+.glass-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 46px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 30px;
+  background:
+    linear-gradient(145deg, rgba(98, 190, 229, 0.1), transparent 34%),
+    rgba(7, 19, 30, var(--surface-opacity, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(67, 144, 184, 0.2),
+    0 18px 52px rgba(0, 7, 15, 0.46);
+  backdrop-filter: blur(26px) saturate(140%);
+}
+
+.glass-shell--stale .liquid {
+  filter: grayscale(0.55) saturate(0.7);
+  opacity: 0.52;
+}
+
+.glass-shell::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  pointer-events: none;
+  border: 1px solid rgba(195, 237, 255, 0.1);
+  border-radius: 25px;
+}
+
+.drag-rail {
+  position: absolute;
+  z-index: 10;
+  inset: 0 56px auto 0;
+  height: 22px;
+  cursor: grab;
+}
+
+.drag-rail:active {
+  cursor: grabbing;
+}
+
+.quota-grid,
+.loading-surface {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
+}
+
+.quota-cell {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.quota-cell + .quota-cell,
+.loading-cell + .loading-cell {
+  border-left: 1px solid rgba(177, 228, 250, 0.26);
+  box-shadow: -8px 0 22px rgba(34, 185, 226, 0.04);
+}
+
+.quota-cell--cyan {
+  --accent: var(--cyan);
+  --liquid-a: rgba(0, 157, 225, 0.7);
+  --liquid-b: rgba(4, 79, 128, 0.3);
+}
+
+.quota-cell--mint {
+  --accent: var(--mint);
+  --liquid-a: rgba(23, 187, 158, 0.64);
+  --liquid-b: rgba(8, 86, 85, 0.3);
+}
+
+.liquid {
+  position: absolute;
+  z-index: -1;
+  inset: 0 -8%;
+  opacity: 0.78;
+  background:
+    radial-gradient(circle at 26% 8%, rgba(255, 255, 255, 0.16), transparent 32%),
+    linear-gradient(180deg, var(--liquid-a), var(--liquid-b));
+  filter: drop-shadow(0 -8px 20px color-mix(in srgb, var(--accent) 22%, transparent));
+  clip-path: inset(var(--empty-level) 0 0);
+  transition: clip-path 260ms ease-out;
+}
+
+.liquid::before {
+  content: "";
+  position: absolute;
+  top: var(--empty-level);
+  left: -3%;
+  width: 106%;
+  height: 12px;
+  border-top: 2px solid color-mix(in srgb, var(--accent) 84%, white);
+  border-radius: 50%;
+  box-shadow: 0 -2px 10px color-mix(in srgb, var(--accent) 44%, transparent);
+  transform: rotate(-0.6deg);
+}
+
+.cell-content {
+  position: relative;
+  height: 100%;
+  padding: 28px 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.quota-label {
+  color: #f0faff;
+  font-size: 17px;
+  font-weight: 620;
+  letter-spacing: 0.045em;
+}
+
+.capacity-value {
+  margin-top: 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.capacity-value > span {
+  font-size: clamp(48px, 10vw, 68px);
+  font-weight: 390;
+  line-height: 1;
+  letter-spacing: -0.065em;
+  text-shadow: 0 1px 12px rgba(206, 244, 255, 0.12);
+}
+
+.capacity-value small {
+  font-size: 19px;
+  font-weight: 480;
+}
+
+.reset-time {
+  margin-top: auto;
+  color: #e7f5fa;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scale-line {
+  width: 82%;
+  height: 9px;
+  margin-top: 8px;
+  opacity: 0.72;
+  border-bottom: 1px solid var(--accent);
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 9px,
+    color-mix(in srgb, var(--accent) 70%, white) 9px 10px
+  );
+  mask-image: linear-gradient(to bottom, transparent 0 3px, #000 3px);
+}
+
+.status-footer {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  padding: 0 52px 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid rgba(170, 223, 247, 0.18);
+  color: var(--text-secondary);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-footer b {
+  color: var(--mint);
+  font-weight: 650;
+}
+
+.status-footer--expanded {
+  justify-content: flex-start;
+}
+
+.status-footer--expanded b {
+  margin-left: auto;
+  color: #f6fcff;
+}
+
+.stale-warning {
+  color: #ffc4a8;
+  font-weight: 650;
+}
+
+.detail-strip {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-strip > span {
+  margin-right: auto;
+}
+
+.detail-strip button,
+.settings-popover button {
+  min-height: 30px;
+  border: 1px solid rgba(141, 220, 249, 0.26);
+  border-radius: 9px;
+  color: #ecfaff;
+  background: rgba(91, 178, 215, 0.08);
+  cursor: pointer;
+}
+
+.detail-strip button:hover,
+.settings-popover button:hover {
+  background: rgba(91, 178, 215, 0.16);
+}
+
+.expand-button {
+  position: absolute;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #eaf8fd;
+  background: transparent;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+
+.expand-button:hover:not(:disabled) {
+  border-color: rgba(141, 220, 249, 0.3);
+  background: rgba(92, 183, 222, 0.1);
+}
+
+.expand-button:focus-visible,
+.failed-surface button:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+.expand-button:disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+.loading-cell {
+  padding: 30px 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.skeleton {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(164, 204, 221, 0.08), rgba(179, 229, 244, 0.2), rgba(164, 204, 221, 0.08));
+  background-size: 220% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton--large {
+  width: 68%;
+  height: 44px;
+}
+
+.skeleton--small {
+  width: 48%;
+  height: 12px;
+}
+
+.failed-surface {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #ffeae5;
+  text-align: center;
+}
+
+.failed-surface strong {
+  font-size: 20px;
+}
+
+.failed-surface > span:not(.error-mark) {
+  color: #e3bab0;
+  font-size: 13px;
+}
+
+.error-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--danger);
+  border-radius: 50%;
+  color: var(--danger);
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.failed-surface button {
+  min-width: 116px;
+  min-height: 34px;
+  margin-top: 5px;
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  color: #ffd8cf;
+  background: rgba(255, 104, 76, 0.06);
+  cursor: pointer;
+}
+
+.settings-popover {
+  position: absolute;
+  z-index: 20;
+  right: 16px;
+  bottom: 50px;
+  width: 236px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(177, 228, 250, 0.28);
+  border-radius: 16px;
+  color: #edfaff;
+  background: rgba(7, 19, 30, 0.94);
+  box-shadow: 0 18px 40px rgba(0, 5, 12, 0.42);
+  backdrop-filter: blur(28px) saturate(150%);
+}
+
+.settings-heading,
+.settings-popover label,
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-heading button {
+  width: 30px;
+  padding: 0;
+}
+
+.settings-popover label:not(.toggle-row) {
+  display: grid;
+  justify-content: stretch;
+}
+
+.settings-popover input[type="range"] {
+  width: 100%;
+  accent-color: var(--cyan);
+}
+
+.settings-popover small {
+  color: var(--text-secondary);
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

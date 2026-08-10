@@ -1,4 +1,7 @@
 node_modules/
+.npm-cache/
+.cargo-cache/
+.scratch/tauri-scaffold-temp/
 dist/
 target/
 src-tauri/target/
@@ -8,4 +11,7 @@ test-results/
 playwright-report/
 *.log
 .impeccable/questions/
-
+release/
+.scratch/*-profile/
+.scratch/tools/
+.scratch/verification/

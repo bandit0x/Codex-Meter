@@ -4,10 +4,9 @@
 
 **Blocked by:** 01 — 可运行的配额浮窗闭环
 
-**Status:** ready-for-agent
+**Status:** Verified
 
-- [ ] 生产模式可解析 Codex executable，并允许测试或诊断时显式覆盖 executable 路径。
-- [ ] 进程监督完成初始化、配额读取、稀疏更新合并、超时和安全退出。
-- [ ] Remaining Capacity、Window Reset Time、Full Reset Credit 与字段缺失均映射为统一快照模型。
-- [ ] 契约测试覆盖正常响应、稀疏通知、空字段、畸形消息、提前退出和登录缺失。
-
+- [x] 生产模式可解析 Codex executable，并允许测试或诊断时显式覆盖 executable 路径。
+- [x] 进程监督完成初始化、配额读取、稀疏更新合并、超时和安全退出。
+- [x] Remaining Capacity、Window Reset Time、Full Reset Credit 与字段缺失均映射为统一快照模型。
+- [x] 契约测试覆盖正常响应、稀疏通知、空字段、畸形消息、提前退出和登录缺失。

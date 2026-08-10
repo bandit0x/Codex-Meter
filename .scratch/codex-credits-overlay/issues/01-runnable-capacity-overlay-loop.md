@@ -4,10 +4,9 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** Verified
 
-- [ ] Tauri、Rust 与 React 应用可手动启动，并显示透明、置顶的紧凑浮窗。
-- [ ] 可注入的 app-server executable seam 能启动 fixture 进程并完成真实协议形状的请求与响应。
-- [ ] 加载态与健康态严格保持两个 Quota Window 等宽、同级，并显示更新时间。
-- [ ] 单元、契约与应用级测试证明首次启动、加载和健康闭环，不依赖现有用户缓存。
-
+- [x] Tauri、Rust 与 React 应用可手动启动，并显示透明、置顶的紧凑浮窗。
+- [x] 可注入的 app-server executable seam 能启动 fixture 进程并完成真实协议形状的请求与响应。
+- [x] 加载态与健康态严格保持两个 Quota Window 等宽、同级，并显示更新时间。
+- [x] 单元、契约与应用级测试证明首次启动、加载和健康闭环，不依赖现有用户缓存。
