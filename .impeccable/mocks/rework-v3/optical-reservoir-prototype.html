@@ -214,9 +214,6 @@
       inset: 8px 8px 47px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      transform: rotate(var(--slosh));
-      transform-origin: 50% 100%;
-      transition: transform 80ms linear;
     }
 
     .chamber {
@@ -258,7 +255,8 @@
       width: 100%;
       height: 100%;
       overflow: visible;
-      transform: translateY(var(--slosh-y));
+      transform: translateY(var(--slosh-y)) rotate(var(--slosh));
+      transform-origin: 50% 100%;
       filter: saturate(115%) contrast(105%);
     }
 
@@ -415,6 +413,12 @@
       18% { opacity: .42; }
       100% { transform: translateY(-76px) translateX(8px) scale(1.08); opacity: 0; }
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      .optical-glint,
+      .liquid-highlight,
+      .bubble { animation: none; }
+    }
   </style>
 </head>
 <body data-scene="dark">
@@ -456,11 +460,12 @@
     <footer class="footer"><span>FULL RESETS <b>2</b></span><span>Updated now</span><button class="expand" type="button" aria-label="展开详情"><svg viewBox="0 0 24 24"><path d="m8 9.5 4 4 4-4"/></svg></button></footer>
   </main>
 
-  <p class="stage-note">拖动除按钮外的任意镜片区域：窗口立即跟手，液面按速度反向倾斜并在松手后弹簧回正。18% 与 95% 使用严格线性体积映射；圆角外只显示桌面背景，不存在灰色矩形底板。</p>
+  <p class="stage-note">拖动除按钮外的任意镜片区域：松手后舱体按释放速度短距滑行；液体作为独立质量体滞后、反冲并衰减回荡。18% 与 95% 使用严格线性体积映射；圆角外只显示桌面背景，不存在灰色矩形底板。</p>
 
   <script>
     const params = new URLSearchParams(location.search);
     const persistentSlosh = params.get('motion') === 'slosh';
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const requestedScene = params.get('scene');
     if (requestedScene === 'light' || requestedScene === 'dark') {
       document.body.dataset.scene = requestedScene;
@@ -471,9 +476,11 @@
     const chambers = [...document.querySelectorAll('.chamber')];
     const switcher = document.querySelector('.scene-switch');
     let phase = 0;
-    let slosh = 0;
-    let targetSlosh = persistentSlosh ? 5.5 : 0;
-    let sloshY = persistentSlosh ? -5 : 0;
+    let liquidTilt = persistentSlosh ? 5.5 : 0;
+    let liquidTiltVelocity = 0;
+    let liquidLift = persistentSlosh ? -5 : 0;
+    let liquidLiftVelocity = 0;
+    let pointerActive = false;
     let dragging = false;
     let pointerId = null;
     let originX = 0;
@@ -483,6 +490,26 @@
     let lastX = 0;
     let lastY = 0;
     let lastTime = 0;
+    let lastFrameTime = performance.now();
+    let shellX = 0;
+    let shellY = 0;
+    let shellVelocityX = 0;
+    let shellVelocityY = 0;
+    let shellReady = false;
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    function moveShell(nextX, nextY) {
+      const maxX = Math.max(0, innerWidth - widget.offsetWidth);
+      const maxY = Math.max(0, innerHeight - widget.offsetHeight);
+      const clampedX = clamp(nextX, 0, maxX);
+      const clampedY = clamp(nextY, 0, maxY);
+      shellX = clampedX;
+      shellY = clampedY;
+      widget.style.left = `${clampedX}px`;
+      widget.style.top = `${clampedY}px`;
+      return { hitX: clampedX !== nextX, hitY: clampedY !== nextY };
+    }
 
     function wavePath(width, height, y, amplitude, phaseOffset) {
       const points = [];
@@ -494,19 +521,55 @@
       return `M ${points.join(' L ')} L ${width + 12},${height + 12} L -12,${height + 12} Z`;
     }
 
-    function render() {
-      phase += dragging ? .075 : .028;
-      slosh += (targetSlosh - slosh) * (dragging ? .24 : .075);
-      if (!dragging && !persistentSlosh) targetSlosh *= .925;
-      sloshY += ((dragging ? Math.abs(targetSlosh) * .55 : 0) - sloshY) * .09;
-      widget.style.setProperty('--slosh', `${slosh.toFixed(2)}deg`);
-      widget.style.setProperty('--slosh-y', `${sloshY.toFixed(2)}px`);
+    function render(now) {
+      const dt = Math.min(32, Math.max(8, now - lastFrameTime));
+      const frame = dt / 16.667;
+      lastFrameTime = now;
+
+      if (shellReady && !pointerActive && !persistentSlosh && !reducedMotion) {
+        const { hitX, hitY } = moveShell(
+          shellX + shellVelocityX * dt,
+          shellY + shellVelocityY * dt,
+        );
+        if (hitX) {
+          liquidTiltVelocity += clamp(shellVelocityX * 2.8, -3.2, 3.2);
+          shellVelocityX = 0;
+        }
+        if (hitY) {
+          liquidLiftVelocity += clamp(shellVelocityY * 2.4, -3, 3);
+          shellVelocityY = 0;
+        }
+        const friction = Math.exp(-dt / 90);
+        shellVelocityX *= friction;
+        shellVelocityY *= friction;
+        if (Math.hypot(shellVelocityX, shellVelocityY) < .018) {
+          shellVelocityX = 0;
+          shellVelocityY = 0;
+        }
+      }
+
+      if (!reducedMotion) phase += dragging ? .075 : .028;
+      let targetTilt = 0;
+      let targetLift = 0;
+      if (!reducedMotion && persistentSlosh) {
+        targetTilt = 5.5;
+        targetLift = -5;
+      } else if (!reducedMotion) {
+        targetTilt = clamp(-shellVelocityX * 6.2, -7, 7);
+        targetLift = clamp(shellVelocityY * 4.2, -8, 8);
+      }
+      liquidTiltVelocity += ((targetTilt - liquidTilt) * .13 - liquidTiltVelocity * .17) * frame;
+      liquidTilt = clamp(liquidTilt + liquidTiltVelocity * frame, -9, 9);
+      liquidLiftVelocity += ((targetLift - liquidLift) * .16 - liquidLiftVelocity * .21) * frame;
+      liquidLift = clamp(liquidLift + liquidLiftVelocity * frame, -9, 9);
+      widget.style.setProperty('--slosh', `${liquidTilt.toFixed(2)}deg`);
+      widget.style.setProperty('--slosh-y', `${liquidLift.toFixed(2)}px`);
 
       chambers.forEach((chamber, index) => {
         const value = Number(chamber.dataset.value);
         const height = 205;
         const base = height * (1 - value / 100);
-        const amplitude = 3.2 + Math.min(4.8, Math.abs(slosh) * .62);
+        const amplitude = 3.2 + Math.min(5.6, Math.abs(liquidTilt) * .68 + Math.abs(liquidTiltVelocity) * .5);
         const paths = chamber.querySelectorAll('path[class^="liquid-"]');
         paths[0].setAttribute('d', wavePath(292, height, base - 2, amplitude * .68, index * .9 + 1.2));
         paths[1].setAttribute('d', wavePath(292, height, base + 1.5, amplitude, index * .7));
@@ -516,7 +579,8 @@
 
     widget.addEventListener('pointerdown', (event) => {
       if (event.target.closest('button')) return;
-      dragging = true;
+      pointerActive = true;
+      dragging = false;
       pointerId = event.pointerId;
       widget.setPointerCapture(pointerId);
       const rect = widget.getBoundingClientRect();
@@ -527,41 +591,62 @@
       originY = event.clientY;
       startLeft = rect.left;
       startTop = rect.top;
+      shellX = rect.left;
+      shellY = rect.top;
+      shellReady = true;
+      shellVelocityX = 0;
+      shellVelocityY = 0;
+      liquidTiltVelocity = 0;
+      liquidLiftVelocity = 0;
       lastX = event.clientX;
       lastY = event.clientY;
       lastTime = performance.now();
     });
 
     widget.addEventListener('pointermove', (event) => {
-      if (!dragging || event.pointerId !== pointerId) return;
+      if (!pointerActive || event.pointerId !== pointerId) return;
+      const totalX = event.clientX - originX;
+      const totalY = event.clientY - originY;
+      if (!dragging && Math.hypot(totalX, totalY) < 4) return;
+      dragging = true;
       const now = performance.now();
       const dt = Math.max(8, now - lastTime);
       const velocityX = (event.clientX - lastX) / dt;
       const velocityY = (event.clientY - lastY) / dt;
-      targetSlosh = Math.max(-6, Math.min(6, -velocityX * 3.8));
-      sloshY = Math.max(-7, Math.min(7, velocityY * 2.4));
-      const nextLeft = Math.max(0, Math.min(innerWidth - widget.offsetWidth, startLeft + event.clientX - originX));
-      const nextTop = Math.max(0, Math.min(innerHeight - widget.offsetHeight, startTop + event.clientY - originY));
-      widget.style.left = `${nextLeft}px`;
-      widget.style.top = `${nextTop}px`;
+      shellVelocityX = clamp(shellVelocityX * .34 + velocityX * .66, -.9, .9);
+      shellVelocityY = clamp(shellVelocityY * .34 + velocityY * .66, -.9, .9);
+      moveShell(startLeft + totalX, startTop + totalY);
       lastX = event.clientX;
       lastY = event.clientY;
       lastTime = now;
     });
 
     function release(event) {
-      if (!dragging || event.pointerId !== pointerId) return;
+      if (!pointerActive || event.pointerId !== pointerId) return;
+      if (!dragging || performance.now() - lastTime > 80) {
+        shellVelocityX = 0;
+        shellVelocityY = 0;
+      }
+      if (reducedMotion) {
+        shellVelocityX = 0;
+        shellVelocityY = 0;
+      }
+      pointerActive = false;
       dragging = false;
       widget.releasePointerCapture(pointerId);
       pointerId = null;
     }
 
     widget.addEventListener('pointerup', release);
-    widget.addEventListener('pointercancel', release);
+    widget.addEventListener('pointercancel', (event) => {
+      shellVelocityX = 0;
+      shellVelocityY = 0;
+      release(event);
+    });
     switcher.addEventListener('click', () => {
       document.body.dataset.scene = document.body.dataset.scene === 'light' ? 'dark' : 'light';
     });
-    render();
+    requestAnimationFrame(render);
   </script>
 </body>
 </html>
