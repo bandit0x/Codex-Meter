@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { FluidSurface, type FluidMotionSample, linearLiquidLevel } from "./fluidPhysics";
+import { OpticalFluidRenderer } from "./opticalFluidRenderer";
 
 interface FluidReservoirProps {
   remainingPercent: number;
@@ -266,7 +267,8 @@ export function FluidReservoir({
   motion,
   reducedMotion,
 }: FluidReservoirProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const webglCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fallbackCanvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef(
     new FluidSurface(56, accent === "mint" ? { tension: 0.175, damping: 0.981 } : undefined),
   );
@@ -275,22 +277,49 @@ export function FluidReservoir({
   const drawRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const webglCanvas = webglCanvasRef.current;
+    const fallbackCanvas = fallbackCanvasRef.current;
+    if (!webglCanvas || !fallbackCanvas) return;
     const surface = surfaceRef.current;
     const palette = palettes[accent];
+    let opticalRenderer: OpticalFluidRenderer | null = null;
+    let fallbackEnabled = false;
+
+    try {
+      opticalRenderer = new OpticalFluidRenderer(webglCanvas, accent);
+      webglCanvas.dataset.renderer = "webgl";
+      webglCanvas.style.display = "block";
+      fallbackCanvas.style.display = "none";
+    } catch (error) {
+      console.warn("WebGL optical reservoir unavailable; using Canvas 2D fallback", error);
+      fallbackEnabled = true;
+      webglCanvas.dataset.renderer = "unavailable";
+      fallbackCanvas.dataset.renderer = "canvas2d";
+      webglCanvas.style.display = "none";
+      fallbackCanvas.style.display = "block";
+    }
 
     const render = (time = performance.now()) => {
-      const bounds = canvas.getBoundingClientRect();
+      if (opticalRenderer) {
+        opticalRenderer.render({
+          remainingPercent,
+          surface: surface.heights,
+          timeMs: time,
+          active: surface.isActive,
+        });
+        return;
+      }
+      if (!fallbackEnabled) return;
+      const bounds = fallbackCanvas.getBoundingClientRect();
       if (bounds.width <= 0 || bounds.height <= 0) return;
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       const pixelWidth = Math.max(1, Math.round(bounds.width * ratio));
       const pixelHeight = Math.max(1, Math.round(bounds.height * ratio));
-      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-        canvas.width = pixelWidth;
-        canvas.height = pixelHeight;
+      if (fallbackCanvas.width !== pixelWidth || fallbackCanvas.height !== pixelHeight) {
+        fallbackCanvas.width = pixelWidth;
+        fallbackCanvas.height = pixelHeight;
       }
-      const context = canvas.getContext("2d");
+      const context = fallbackCanvas.getContext("2d");
       if (!context) return;
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       drawReservoir(context, bounds.width, bounds.height, remainingPercent, surface, palette, time, surface.isActive);
@@ -298,11 +327,27 @@ export function FluidReservoir({
     drawRef.current = () => render();
     render();
 
-    if (typeof ResizeObserver === "undefined") return;
-    const resizeObserver = new ResizeObserver(() => render());
-    resizeObserver.observe(canvas);
-    return () => resizeObserver.disconnect();
-  }, [accent, remainingPercent]);
+    let ambientFrame: number | null = null;
+    let lastAmbientTime = 0;
+    const animateAmbient = (time: number) => {
+      if (time - lastAmbientTime >= 32) {
+        lastAmbientTime = time;
+        render(time);
+      }
+      ambientFrame = requestAnimationFrame(animateAmbient);
+    };
+    if (!reducedMotion) ambientFrame = requestAnimationFrame(animateAmbient);
+
+    const resizeObserver = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(() => render());
+    resizeObserver?.observe(opticalRenderer ? webglCanvas : fallbackCanvas);
+    return () => {
+      resizeObserver?.disconnect();
+      if (ambientFrame !== null) cancelAnimationFrame(ambientFrame);
+      opticalRenderer?.destroy();
+    };
+  }, [accent, reducedMotion, remainingPercent]);
 
   useEffect(() => {
     const surface = surfaceRef.current;
@@ -332,5 +377,15 @@ export function FluidReservoir({
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
   }, []);
 
-  return <canvas ref={canvasRef} className="fluid-reservoir" aria-hidden="true" />;
+  return (
+    <>
+      <canvas ref={webglCanvasRef} className="fluid-reservoir" aria-hidden="true" />
+      <canvas
+        ref={fallbackCanvasRef}
+        className="fluid-reservoir"
+        aria-hidden="true"
+        style={{ display: "none" }}
+      />
+    </>
+  );
 }

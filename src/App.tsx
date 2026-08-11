@@ -252,6 +252,8 @@ export function App({
     positionY: 0,
     velocityX: 0,
     velocityY: 0,
+    pendingDeltaX: 0,
+    pendingDeltaY: 0,
   });
   const inertiaFrameRef = useRef<number | null>(null);
   const motionSequenceRef = useRef(0);
@@ -346,38 +348,50 @@ export function App({
     drag.lastTime = performance.now();
     drag.velocityX = 0;
     drag.velocityY = 0;
+    drag.pendingDeltaX = 0;
+    drag.pendingDeltaY = 0;
     previousMotionVelocityRef.current = { x: 0, y: 0 };
     setIsWindowDragging(true);
 
     void getWindowPosition()
       .then((position) => {
         if (drag.pointerId !== event.pointerId) return;
-        drag.positionX = position.x;
-        drag.positionY = position.y;
+        drag.positionX = position.x + drag.pendingDeltaX;
+        drag.positionY = position.y + drag.pendingDeltaY;
         drag.ready = true;
+        if (drag.pendingDeltaX !== 0 || drag.pendingDeltaY !== 0) {
+          void setWindowPosition({ x: drag.positionX, y: drag.positionY });
+        }
       })
       .catch(() => {
         drag.pointerId = -1;
         setIsWindowDragging(false);
         setControlMessage("窗口无法拖动 · CRV-307");
       });
-  }, [getWindowPosition, stopWindowInertia]);
+  }, [getWindowPosition, setWindowPosition, stopWindowInertia]);
 
   const handleDragMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
     const drag = dragRef.current;
-    if (drag.pointerId !== event.pointerId || !drag.ready) return;
+    if (drag.pointerId !== event.pointerId) return;
     const now = performance.now();
     const elapsed = Math.max(8, now - drag.lastTime);
-    const sampleX = (event.screenX - drag.lastPointerX) / elapsed;
-    const sampleY = (event.screenY - drag.lastPointerY) / elapsed;
+    const deltaX = event.screenX - drag.lastPointerX;
+    const deltaY = event.screenY - drag.lastPointerY;
+    const sampleX = deltaX / elapsed;
+    const sampleY = deltaY / elapsed;
     drag.velocityX = drag.velocityX * 0.38 + sampleX * 0.62;
     drag.velocityY = drag.velocityY * 0.38 + sampleY * 0.62;
-    drag.positionX += event.screenX - drag.lastPointerX;
-    drag.positionY += event.screenY - drag.lastPointerY;
+    if (drag.ready) {
+      drag.positionX += deltaX;
+      drag.positionY += deltaY;
+    } else {
+      drag.pendingDeltaX += deltaX;
+      drag.pendingDeltaY += deltaY;
+    }
     drag.lastPointerX = event.screenX;
     drag.lastPointerY = event.screenY;
     drag.lastTime = now;
-    void setWindowPosition({ x: drag.positionX, y: drag.positionY });
+    if (drag.ready) void setWindowPosition({ x: drag.positionX, y: drag.positionY });
     publishFluidMotion(drag.velocityX, drag.velocityY, "dragging");
   }, [publishFluidMotion, setWindowPosition]);
 

@@ -44,6 +44,7 @@ input:focus-visible {
   display: grid;
   place-items: center;
   user-select: none;
+  touch-action: none;
   cursor: grab;
 }
 
@@ -87,37 +88,38 @@ input:focus-visible {
   z-index: 11;
   inset: 0;
   pointer-events: none;
-  padding: 4px;
+  padding: 7px;
   border-radius: inherit;
   background: linear-gradient(
     128deg,
-    rgba(255, 255, 255, 1),
-    rgba(53, 201, 255, 0.92) 14%,
-    rgba(231, 250, 255, 0.48) 37%,
-    rgba(36, 76, 101, 0.32) 56%,
-    rgba(75, 239, 207, 0.86) 84%,
-    rgba(255, 255, 255, 1)
+    rgba(255, 255, 255, 0.82),
+    rgba(53, 201, 255, 0.58) 14%,
+    rgba(231, 250, 255, 0.3) 37%,
+    rgba(36, 76, 101, 0.18) 56%,
+    rgba(75, 239, 207, 0.52) 84%,
+    rgba(255, 255, 255, 0.78)
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+  filter: blur(0.2px);
 }
 
 .glass-shell::after {
   content: "";
   position: absolute;
   z-index: 10;
-  inset: 7px;
+  inset: 8px;
   pointer-events: none;
-  border: 2px solid rgba(213, 244, 255, 0.42);
+  border: 1px solid rgba(213, 244, 255, 0.5);
   border-radius: 27px;
   box-shadow:
-    0 0 0 2px rgba(0, 5, 12, 0.88),
-    0 0 10px rgba(95, 214, 255, 0.2),
-    inset 0 12px 18px rgba(210, 246, 255, 0.11),
-    inset 0 -12px 18px rgba(0, 2, 8, 0.64),
-    inset 7px 0 13px rgba(78, 193, 235, 0.1),
-    inset -7px 0 13px rgba(85, 221, 195, 0.08);
+    0 0 0 1px rgba(0, 5, 12, 0.78),
+    0 0 14px rgba(95, 214, 255, 0.18),
+    inset 0 15px 22px rgba(210, 246, 255, 0.13),
+    inset 0 -16px 23px rgba(0, 2, 8, 0.68),
+    inset 10px 0 18px rgba(78, 193, 235, 0.13),
+    inset -10px 0 18px rgba(85, 221, 195, 0.11);
 }
 
 .glass-shell--collapsed::after { border-radius: 23px; }
@@ -216,14 +218,14 @@ input:focus-visible {
   z-index: 7;
   inset: 0;
   pointer-events: none;
-  border: 2px solid rgba(220, 247, 255, 0.48);
+  border: 1px solid rgba(220, 247, 255, 0.52);
   border-radius: inherit;
   box-shadow:
-    0 0 0 2px rgba(0, 5, 12, 0.76),
-    inset 4px 0 8px rgba(239, 253, 255, 0.2),
-    inset -4px 0 9px color-mix(in srgb, var(--accent) 18%, transparent),
-    inset 0 12px 18px rgba(205, 242, 255, 0.12),
-    inset 0 -15px 22px rgba(0, 3, 10, 0.7);
+    0 0 0 1px rgba(0, 5, 12, 0.68),
+    inset 7px 0 13px rgba(239, 253, 255, 0.18),
+    inset -7px 0 14px color-mix(in srgb, var(--accent) 20%, transparent),
+    inset 0 15px 22px rgba(205, 242, 255, 0.14),
+    inset 0 -18px 26px rgba(0, 3, 10, 0.72);
 }
 
 .quota-cell--mint::after { border-radius: inherit; }

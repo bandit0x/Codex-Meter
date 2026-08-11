@@ -138,6 +138,36 @@ describe("Codex capacity overlay", () => {
     await waitFor(() => expect(positions[positions.length - 1]).toEqual({ x: 128, y: 214 }));
   });
 
+  it("preserves immediate drag movement while the native position is still loading", async () => {
+    const positions: Array<{ x: number; y: number }> = [];
+    let resolvePosition: ((position: { x: number; y: number }) => void) | undefined;
+    const pendingPosition = new Promise<{ x: number; y: number }>((resolve) => {
+      resolvePosition = resolve;
+    });
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => healthySnapshot}
+        getWindowPosition={() => pendingPosition}
+        setWindowPosition={async (position) => {
+          positions.push(position);
+        }}
+      />,
+    );
+
+    await screen.findByText("76%", { exact: false });
+    const surface = container.querySelector(".app-frame") as HTMLElement;
+    surface.setPointerCapture = () => undefined;
+    surface.hasPointerCapture = () => false;
+
+    fireEvent.pointerDown(surface, { button: 0, pointerId: 11, screenX: 20, screenY: 30 });
+    fireEvent.pointerMove(surface, { pointerId: 11, screenX: 48, screenY: 44 });
+    expect(positions).toHaveLength(0);
+
+    resolvePosition?.({ x: 100, y: 200 });
+    await waitFor(() => expect(positions[positions.length - 1]).toEqual({ x: 128, y: 214 }));
+  });
+
   it("keeps the last successful snapshot visibly stale after a refresh failure", async () => {
     const user = userEvent.setup();
     let attempt = 0;
