@@ -20,7 +20,7 @@ pub struct DisplayPreferences {
 impl Default for DisplayPreferences {
     fn default() -> Self {
         Self {
-            opacity: 0.92,
+            opacity: 0.76,
             reduced_motion: false,
             x: None,
             y: None,
@@ -138,5 +138,11 @@ mod tests {
         assert!(!raw.contains("token"));
         assert!(!raw.contains("startup"));
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn default_preferences_match_the_v2_liquid_glass_contract() {
+        assert_eq!(DisplayPreferences::default().opacity, 0.76);
+        assert!(!DisplayPreferences::default().reduced_motion);
     }
 }

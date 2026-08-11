@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
@@ -8,6 +8,7 @@ const inertPreferences = {
   loadPreferences: async () => ({ opacity: 0.92, reducedMotion: false, x: null, y: null }),
   savePreferences: async () => undefined,
   enableClickThrough: async () => undefined,
+  setWindowLayout: async () => undefined,
 };
 
 const healthySnapshot: CapacitySnapshot = {
@@ -86,7 +87,30 @@ describe("Codex capacity overlay", () => {
     await user.click(screen.getByRole("button", { name: "穿透 10 秒" }));
     expect(clickThroughCalls).toBe(1);
     await user.click(screen.getByRole("button", { name: "设置" }));
-    expect(screen.getByRole("complementary", { name: "显示设置" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "显示设置" })).toBeInTheDocument();
+  });
+
+  it("moves between compact, expanded, and collapsed window layouts", async () => {
+    const user = userEvent.setup();
+    const layouts: string[] = [];
+    render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => healthySnapshot}
+        setWindowLayout={async (layout) => { layouts.push(layout); }}
+      />,
+    );
+
+    await screen.findByText("76%", { exact: false });
+    await user.click(screen.getByRole("button", { name: "展开重置详情" }));
+    expect(layouts[layouts.length - 1]).toBe("expanded");
+
+    await user.click(screen.getByRole("button", { name: "收起为窄条" }));
+    expect(layouts[layouts.length - 1]).toBe("collapsed");
+    expect(screen.getByRole("button", { name: "恢复标准视图" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "恢复标准视图" }));
+    expect(layouts[layouts.length - 1]).toBe("compact");
   });
 
   it("keeps the last successful snapshot visibly stale after a refresh failure", async () => {
@@ -110,6 +134,31 @@ describe("Codex capacity overlay", () => {
     expect(screen.getByText("76%", { exact: false })).toBeInTheDocument();
   });
 
+  it("labels an upstream stale snapshot instead of presenting it as healthy", async () => {
+    render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => ({ ...healthySnapshot, sourceState: "stale" })}
+      />,
+    );
+
+    expect(await screen.findByText("STALE · cached snapshot")).toBeInTheDocument();
+  });
+
+  it("renders a missing quota window as unavailable without a broken percentage", async () => {
+    render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => ({ ...healthySnapshot, fiveHour: null })}
+      />,
+    );
+
+    const fiveHour = await screen.findByRole("group", { name: "5 HOUR quota unavailable" });
+    expect(within(fiveHour).getByText("Data unavailable")).toBeInTheDocument();
+    expect(within(fiveHour).queryByText("LEFT")).not.toBeInTheDocument();
+    expect(screen.getByText(/5-hour unavailable/)).toBeInTheDocument();
+  });
+
   it("persists opacity and reduced-motion choices as display-only preferences", async () => {
     const user = userEvent.setup();
     const saves: Array<{ opacity: number; reducedMotion: boolean }> = [];
@@ -130,23 +179,28 @@ describe("Codex capacity overlay", () => {
     expect(saves[saves.length - 1]).toEqual({ opacity: 0.92, reducedMotion: true });
   });
 
-  it("ignores an older refresh result that arrives after a newer snapshot", async () => {
+  it("closes the settings dialog with Escape", async () => {
+    const user = userEvent.setup();
+    render(<App {...inertPreferences} loadSnapshot={async () => healthySnapshot} />);
+
+    await screen.findByText("76%", { exact: false });
+    await user.click(screen.getByRole("button", { name: "展开重置详情" }));
+    await user.click(screen.getByRole("button", { name: "设置" }));
+    expect(screen.getByRole("dialog", { name: "显示设置" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "显示设置" })).not.toBeInTheDocument();
+  });
+
+  it("prevents a second manual refresh while the first refresh is pending", async () => {
     const user = userEvent.setup();
     let attempt = 0;
-    let rejectOlder: (reason: unknown) => void = () => undefined;
     render(
       <App
         {...inertPreferences}
         loadSnapshot={() => {
           attempt += 1;
           if (attempt === 1) return Promise.resolve(healthySnapshot);
-          if (attempt === 2) {
-            return new Promise((_, reject) => { rejectOlder = reject; });
-          }
-          return Promise.resolve({
-            ...healthySnapshot,
-            fiveHour: { ...healthySnapshot.fiveHour!, remainingPercent: 81 },
-          });
+          return new Promise(() => undefined);
         }}
       />,
     );
@@ -154,11 +208,9 @@ describe("Codex capacity overlay", () => {
     await screen.findByText("76%", { exact: false });
     await user.click(screen.getByRole("button", { name: "展开重置详情" }));
     await user.click(screen.getByRole("button", { name: "刷新" }));
-    await user.click(screen.getByRole("button", { name: "刷新" }));
-    expect(await screen.findByText("81%", { exact: false })).toBeInTheDocument();
-
-    await act(async () => rejectOlder({ code: "CRV-111", message: "late timeout" }));
-    expect(screen.queryByText("STALE · CRV-111")).not.toBeInTheDocument();
-    expect(screen.getByText("81%", { exact: false })).toBeInTheDocument();
+    const refreshButton = screen.getByRole("button", { name: "刷新中" });
+    expect(refreshButton).toBeDisabled();
+    await user.click(refreshButton);
+    expect(attempt).toBe(2);
   });
 });

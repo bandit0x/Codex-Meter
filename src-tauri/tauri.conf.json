@@ -17,7 +17,7 @@
         "width": 600,
         "height": 260,
         "minWidth": 520,
-        "minHeight": 230,
+        "minHeight": 96,
         "maxWidth": 680,
         "maxHeight": 320,
         "center": true,

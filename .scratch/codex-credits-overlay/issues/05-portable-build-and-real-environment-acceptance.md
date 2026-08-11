@@ -6,7 +6,12 @@
 
 **Status:** Acceptance pending
 
+**V2 update (2026-08-11):** the user-approved liquid-glass V2 was implemented
+and verified in real Tauri windows. Compact, expanded, settings/Escape,
+collapsed, portable live-data, portable failure-recovery, and authored-motion
+checks now have current evidence in `docs/verification/VERIFICATION.md`.
+
 - [x] 当前来源版本可生成明确可定位的便携产物，并通过发布目录启动烟雾测试。
 - [x] 目标机器真实 Codex 冒烟检查对照五小时、一周、重置和新鲜度字段，且不消费 Full Reset Credit。
 - [x] 隔离数据目录端到端检查覆盖首次启动、重新打开、偏好恢复与至少一个可行动失败路径。
-- [x] 真实运行截图覆盖紧凑、加载、健康、失败和收起状态，并与批准的方案 3 逐项对照。
+- [ ] 真实运行截图覆盖紧凑、加载、健康、失败和收起状态，并与批准的方案 3 逐项对照；当前视觉对照失败，且专用 collapsed 形态未实现。

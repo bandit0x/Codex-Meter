@@ -1,6 +1,6 @@
 # Approved Surface Brief
 
-**Status:** approved for implementation
+**Status:** visual direction approved; first implementation rejected; V2 rework implemented and verified in real Windows Tauri windows; user acceptance pending
 
 **Surface:** manually launched Windows 11 x64 always-on-top Codex capacity overlay.
 
@@ -12,7 +12,6 @@
 
 **Interaction contract:** manual launch only; drag; always-on-top; expand/collapse; right-click settings; reversible mouse click-through; manual refresh; remembered non-secret display preferences.
 
-**Approved evidence:** `.impeccable/mocks/composition/split-lens-bar.png` and `.impeccable/mocks/states/twin-cells-state-board.png`.
+**Approved evidence:** `.impeccable/mocks/composition/split-lens-bar.png`, `.impeccable/mocks/states/twin-cells-state-board.png`, and the V2 implementation reference `.impeccable/mocks/rework-v2/compact-prototype.html`.
 
 **Guardrails:** read-only Codex integration; no credential interception; no startup registration; no reset redemption; no gaming HUD, purple gradient, nested card grid, or opaque attention-stealing panel.
-
