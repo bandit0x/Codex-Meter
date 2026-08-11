@@ -1,6 +1,6 @@
 # Approved Surface Brief
 
-**Status:** visual direction approved; first implementation rejected; V2 rework implemented and verified in real Windows Tauri windows; user acceptance pending
+**Status:** V1 and V2 implementations rejected; V3 Optical Reservoir redesign awaiting user approval; product implementation frozen
 
 **Surface:** manually launched Windows 11 x64 always-on-top Codex capacity overlay.
 

@@ -1,10 +1,16 @@
 # Verification record
 
-**Status:** Acceptance pending
+**Status:** Blocked
 
-V2 replaces the previously rejected visual implementation. It was validated in
-real Windows 11 Tauri windows and in the locally packaged portable directory;
-the remaining acceptance is the user's visual/product acceptance.
+V2 automatic checks remain historical evidence, but the user rejected its real
+window on 2026-08-11. The current portable directory is not an accepted visual
+deliverable. Product implementation is frozen until the V3 Optical Reservoir
+design in `.impeccable/mocks/rework-v3/` is approved.
+
+The rejection covers five material failures: rectangular gray native chrome,
+an effectively unusable 18 px drag rail, a compressed non-linear liquid-height
+mapping, imperceptible fluid motion with no drag slosh, and insufficient glass
+refraction/3D depth.
 
 **Target environment:** Windows 11 x64, Tauri 2.11.5, WebView2, Rust 1.97.1,
 Node.js 24.18.0, official `@openai/codex` 0.147.0 runtime.

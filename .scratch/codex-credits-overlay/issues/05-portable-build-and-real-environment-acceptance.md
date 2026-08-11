@@ -4,12 +4,18 @@
 
 **Blocked by:** 02 — 连接真实 Codex app-server；03 — 重置详情与故障恢复；04 — Windows 浮窗交互与偏好
 
-**Status:** Acceptance pending
+**Status:** Blocked
 
 **V2 update (2026-08-11):** the user-approved liquid-glass V2 was implemented
 and verified in real Tauri windows. Compact, expanded, settings/Escape,
 collapsed, portable live-data, portable failure-recovery, and authored-motion
 checks now have current evidence in `docs/verification/VERIFICATION.md`.
+
+**V2 rejection (2026-08-11):** real use exposed gray native chrome, an
+unusable drag target, compressed liquid-height mapping, imperceptible motion,
+no drag slosh, and insufficient optical/3D depth. Implementation is frozen;
+the V3 approval candidate and revised acceptance gates are under
+`.impeccable/mocks/rework-v3/`.
 
 - [x] 当前来源版本可生成明确可定位的便携产物，并通过发布目录启动烟雾测试。
 - [x] 目标机器真实 Codex 冒烟检查对照五小时、一周、重置和新鲜度字段，且不消费 Full Reset Credit。

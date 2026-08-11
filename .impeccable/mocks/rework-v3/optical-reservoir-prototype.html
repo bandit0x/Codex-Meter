@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codex Capacity V3 · Optical Reservoir</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --ink: #f4fbff;
+      --muted: #afc9d5;
+      --cyan: #43d8ff;
+      --mint: #5bf0c9;
+      --slosh: 0deg;
+      --slosh-y: 0px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+
+    body {
+      position: relative;
+      color: #d7e6ee;
+      background:
+        radial-gradient(circle at 76% 18%, rgba(61, 120, 160, .18), transparent 28%),
+        linear-gradient(90deg, rgba(11, 19, 28, .98) 0 176px, rgba(21, 31, 42, .94) 176px 100%);
+    }
+
+    body[data-scene="light"] {
+      color: #435363;
+      background:
+        radial-gradient(circle at 77% 20%, rgba(76, 172, 212, .16), transparent 29%),
+        linear-gradient(90deg, #e8edf3 0 176px, #f8fafc 176px 100%);
+    }
+
+    body.isolated { background: transparent; }
+    body.isolated .editor-chrome,
+    body.isolated .caption,
+    body.isolated .scene-switch,
+    body.isolated .stage-note { display: none; }
+    body.isolated .widget { left: 0; top: 0; transform: none; }
+
+    .editor-chrome {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: .82;
+    }
+
+    .editor-chrome::before {
+      content: "EXPLORER\A\A  src\A    App.tsx\A    capacityClient.ts\A    windowClient.ts\A\A  src-tauri\A    capacity.rs\A    preferences.rs";
+      white-space: pre;
+      position: absolute;
+      inset: 56px auto 0 20px;
+      font: 12px/2.1 "Cascadia Code", Consolas, monospace;
+      letter-spacing: .02em;
+    }
+
+    .editor-chrome::after {
+      content: "const remaining = snapshot.weekly?.remainingPercent;\A\Areturn <OpticalReservoir fill={remaining} />;\A\A// V3: linear volume, physical slosh, zero outer chrome";
+      white-space: pre;
+      position: absolute;
+      left: 226px;
+      top: 84px;
+      color: rgba(165, 197, 216, .58);
+      font: 14px/2.3 "Cascadia Code", Consolas, monospace;
+    }
+
+    body[data-scene="light"] .editor-chrome::after { color: rgba(48, 77, 97, .46); }
+
+    .caption {
+      position: absolute;
+      z-index: 2;
+      top: 26px;
+      left: 218px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: currentColor;
+      font-size: 13px;
+      font-weight: 620;
+      letter-spacing: .035em;
+    }
+
+    .caption i {
+      width: 32px;
+      height: 1px;
+      background: currentColor;
+      opacity: .42;
+    }
+
+    .caption small { opacity: .66; font-weight: 480; }
+
+    .scene-switch {
+      position: absolute;
+      z-index: 20;
+      top: 20px;
+      right: 24px;
+      height: 34px;
+      padding: 0 13px;
+      border: 1px solid rgba(125, 184, 212, .32);
+      border-radius: 10px;
+      color: currentColor;
+      background: rgba(100, 145, 170, .09);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+    }
+
+    .stage-note {
+      position: absolute;
+      z-index: 2;
+      left: 218px;
+      bottom: 26px;
+      max-width: 650px;
+      color: currentColor;
+      font-size: 12px;
+      line-height: 1.65;
+      opacity: .7;
+    }
+
+    .widget {
+      position: absolute;
+      z-index: 10;
+      left: 50%;
+      top: 50%;
+      width: 600px;
+      height: 260px;
+      transform: translate3d(-42%, -48%, 0);
+      overflow: hidden;
+      isolation: isolate;
+      border-radius: 32px;
+      color: var(--ink);
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      background:
+        radial-gradient(140% 110% at 50% -18%, rgba(157, 222, 247, .24), transparent 49%),
+        linear-gradient(105deg, rgba(31, 67, 88, .38), rgba(5, 13, 22, .48) 47%, rgba(23, 58, 62, .31)),
+        rgba(5, 15, 24, .56);
+      backdrop-filter: blur(34px) saturate(178%) contrast(108%);
+      -webkit-backdrop-filter: blur(34px) saturate(178%) contrast(108%);
+      box-shadow:
+        inset 0 0 0 1px rgba(223, 248, 255, .74),
+        inset 0 0 0 4px rgba(80, 170, 205, .22),
+        inset 0 16px 26px rgba(193, 235, 250, .08),
+        inset 0 -18px 30px rgba(0, 4, 10, .44);
+    }
+
+    .widget:active { cursor: grabbing; }
+
+    .widget::before {
+      content: "";
+      position: absolute;
+      z-index: 30;
+      inset: 1px;
+      pointer-events: none;
+      border-radius: 31px;
+      background:
+        linear-gradient(118deg, rgba(255, 255, 255, .9), rgba(128, 223, 255, .16) 19%, transparent 37% 62%, rgba(102, 244, 211, .2) 82%, rgba(238, 255, 252, .72)) border-box;
+      padding: 2px;
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+
+    .widget::after {
+      content: "";
+      position: absolute;
+      z-index: 29;
+      inset: 5px;
+      pointer-events: none;
+      border-radius: 27px;
+      border: 1px solid rgba(195, 239, 255, .25);
+      box-shadow:
+        inset 0 7px 12px rgba(220, 249, 255, .13),
+        inset 8px 0 17px rgba(106, 203, 240, .07),
+        inset -8px 0 17px rgba(95, 236, 201, .06),
+        inset 0 -12px 19px rgba(0, 3, 9, .38);
+    }
+
+    .optical-glint {
+      position: absolute;
+      z-index: 31;
+      top: 3px;
+      left: -26%;
+      width: 27%;
+      height: 2px;
+      pointer-events: none;
+      opacity: 0;
+      background: linear-gradient(90deg, transparent, rgba(242, 253, 255, .98), transparent);
+      filter: blur(.25px);
+      animation: rim-travel 5.6s 1s ease-in-out infinite;
+    }
+
+    .grip {
+      position: absolute;
+      z-index: 35;
+      top: 8px;
+      left: 50%;
+      width: 50px;
+      height: 5px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      pointer-events: none;
+      background: rgba(223, 248, 255, .35);
+      box-shadow: 0 1px 0 rgba(0, 4, 9, .66), 0 3px 9px rgba(0, 4, 9, .24);
+    }
+
+    .chambers {
+      position: absolute;
+      z-index: 3;
+      inset: 8px 8px 47px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      transform: rotate(var(--slosh));
+      transform-origin: 50% 100%;
+      transition: transform 80ms linear;
+    }
+
+    .chamber {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border-radius: 25px 17px 13px 24px;
+      background:
+        radial-gradient(90% 40% at 50% 0, rgba(207, 244, 255, .13), transparent 67%),
+        linear-gradient(90deg, rgba(255, 255, 255, .025), transparent 22% 78%, rgba(255, 255, 255, .03));
+      box-shadow:
+        inset 0 0 0 1px rgba(187, 232, 248, .25),
+        inset 8px 0 14px rgba(168, 226, 247, .055),
+        inset -8px 0 14px rgba(0, 7, 13, .18),
+        inset 0 -16px 25px rgba(0, 3, 9, .29);
+    }
+
+    .chamber + .chamber { border-radius: 17px 25px 24px 13px; }
+
+    .seam {
+      position: absolute;
+      z-index: 20;
+      left: 50%;
+      top: 9px;
+      bottom: 47px;
+      width: 8px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(0, 3, 8, .58), rgba(202, 245, 255, .52) 43%, rgba(255, 255, 255, .08) 55%, rgba(0, 4, 8, .46));
+      filter: blur(.15px);
+      opacity: .78;
+      box-shadow: -7px 0 18px rgba(52, 188, 230, .07), 7px 0 18px rgba(60, 224, 186, .06);
+    }
+
+    .liquid-svg {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      transform: translateY(var(--slosh-y));
+      filter: saturate(115%) contrast(105%);
+    }
+
+    .liquid-back { opacity: .62; }
+    .liquid-front { opacity: .9; }
+
+    .liquid-highlight {
+      position: absolute;
+      z-index: 2;
+      inset: 0;
+      pointer-events: none;
+      opacity: .68;
+      mix-blend-mode: screen;
+      background:
+        radial-gradient(ellipse at 23% 17%, rgba(255, 255, 255, .25), transparent 25%),
+        linear-gradient(104deg, transparent 18%, rgba(212, 249, 255, .1) 41%, transparent 57%);
+      animation: caustic-shift 4.2s ease-in-out infinite alternate;
+    }
+
+    .front-lens {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(100% 46% at 50% -5%, rgba(230, 251, 255, .16), transparent 63%),
+        linear-gradient(90deg, rgba(241, 253, 255, .045), transparent 17% 83%, rgba(231, 252, 255, .045));
+      box-shadow:
+        inset 0 14px 22px rgba(224, 249, 255, .06),
+        inset 0 -8px 16px rgba(0, 2, 7, .22);
+    }
+
+    .bubble {
+      position: absolute;
+      z-index: 2;
+      bottom: 13%;
+      width: 5px;
+      height: 5px;
+      border: 1px solid rgba(230, 255, 255, .52);
+      border-radius: 50%;
+      opacity: 0;
+      animation: bubble-rise 5s ease-in infinite;
+    }
+
+    .bubble.a { left: 19%; animation-delay: .7s; }
+    .bubble.b { left: 73%; width: 3px; height: 3px; animation-delay: 2.6s; }
+
+    .content {
+      position: relative;
+      z-index: 6;
+      height: 100%;
+      padding: 21px 24px 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-shadow: 0 2px 9px rgba(0, 3, 8, .88), 0 0 1px rgba(0, 0, 0, .96);
+      pointer-events: none;
+    }
+
+    .label {
+      font-size: 15px;
+      font-weight: 760;
+      letter-spacing: .075em;
+    }
+
+    .value {
+      margin-top: 2px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .value strong {
+      font-size: 57px;
+      line-height: 1;
+      font-weight: 380;
+      letter-spacing: -.035em;
+    }
+
+    .value small { font-size: 16px; font-weight: 650; }
+
+    .reset { margin-top: auto; font-size: 13px; font-weight: 560; }
+
+    .ticks {
+      width: 74%;
+      height: 9px;
+      margin-top: 7px;
+      opacity: .8;
+      border-bottom: 1px solid currentColor;
+      background: repeating-linear-gradient(90deg, transparent 0 9px, currentColor 9px 10px);
+      mask-image: linear-gradient(to bottom, transparent 0 4px, #000 4px);
+    }
+
+    .chamber--cyan .ticks { color: var(--cyan); }
+    .chamber--mint .ticks { color: var(--mint); }
+
+    .footer {
+      position: absolute;
+      z-index: 25;
+      inset: auto 8px 8px;
+      height: 39px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: 0 0 23px 23px;
+      color: var(--muted);
+      background:
+        linear-gradient(180deg, rgba(121, 191, 217, .08), rgba(0, 4, 9, .3)),
+        rgba(4, 14, 22, .36);
+      border-top: 1px solid rgba(188, 235, 251, .2);
+      box-shadow: inset 0 8px 14px rgba(179, 231, 249, .025);
+      font-size: 13px;
+      letter-spacing: .02em;
+      cursor: grab;
+    }
+
+    .footer b { color: var(--mint); }
+
+    .expand {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      color: #effbff;
+      background: rgba(129, 204, 232, .05);
+      cursor: pointer;
+    }
+
+    .expand:hover { background: rgba(129, 204, 232, .14); }
+    .expand:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+    .expand svg { width: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+
+    @keyframes rim-travel {
+      0%, 47% { transform: translateX(0); opacity: 0; }
+      54% { opacity: .9; }
+      73% { transform: translateX(790px); opacity: .2; }
+      100% { transform: translateX(790px); opacity: 0; }
+    }
+
+    @keyframes caustic-shift {
+      from { transform: translate3d(-7px, 0, 0) skewX(-3deg); opacity: .48; }
+      to { transform: translate3d(10px, -3px, 0) skewX(2deg); opacity: .78; }
+    }
+
+    @keyframes bubble-rise {
+      0% { transform: translateY(0) scale(.7); opacity: 0; }
+      18% { opacity: .42; }
+      100% { transform: translateY(-76px) translateX(8px) scale(1.08); opacity: 0; }
+    }
+  </style>
+</head>
+<body data-scene="dark">
+  <div class="editor-chrome" aria-hidden="true"></div>
+  <div class="caption"><i></i>V3 · OPTICAL RESERVOIR <small>交互设计稿 · 演示数据</small></div>
+  <button class="scene-switch" type="button">切换明暗桌面</button>
+
+  <main class="widget" aria-label="Codex Capacity V3 prototype">
+    <span class="optical-glint" aria-hidden="true"></span>
+    <span class="grip" aria-hidden="true"></span>
+    <div class="chambers">
+      <section class="chamber chamber--cyan" data-value="18">
+        <svg class="liquid-svg" viewBox="0 0 292 205" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="cyanBack" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#58e3ff"/><stop offset="1" stop-color="#064669"/></linearGradient>
+            <linearGradient id="cyanFront" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#16c7f5"/><stop offset=".62" stop-color="#08749c"/><stop offset="1" stop-color="#032b47"/></linearGradient>
+          </defs>
+          <path class="liquid-back" fill="url(#cyanBack)"></path>
+          <path class="liquid-front" fill="url(#cyanFront)"></path>
+        </svg>
+        <span class="liquid-highlight"></span><span class="bubble a"></span><span class="front-lens"></span>
+        <div class="content"><span class="label">5 HOUR</span><div class="value"><strong>18%</strong><small>LEFT</small></div><span class="reset">Resets 12:44</span><span class="ticks"></span></div>
+      </section>
+
+      <section class="chamber chamber--mint" data-value="95">
+        <svg class="liquid-svg" viewBox="0 0 292 205" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="mintBack" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a3ffe8"/><stop offset="1" stop-color="#07594f"/></linearGradient>
+            <linearGradient id="mintFront" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#50e7c4"/><stop offset=".6" stop-color="#118976"/><stop offset="1" stop-color="#06463f"/></linearGradient>
+          </defs>
+          <path class="liquid-back" fill="url(#mintBack)"></path>
+          <path class="liquid-front" fill="url(#mintFront)"></path>
+        </svg>
+        <span class="liquid-highlight"></span><span class="bubble b"></span><span class="front-lens"></span>
+        <div class="content"><span class="label">WEEK</span><div class="value"><strong>95%</strong><small>LEFT</small></div><span class="reset">Resets Tue 08:48</span><span class="ticks"></span></div>
+      </section>
+    </div>
+    <span class="seam" aria-hidden="true"></span>
+    <footer class="footer"><span>FULL RESETS <b>2</b></span><span>Updated now</span><button class="expand" type="button" aria-label="展开详情"><svg viewBox="0 0 24 24"><path d="m8 9.5 4 4 4-4"/></svg></button></footer>
+  </main>
+
+  <p class="stage-note">拖动除按钮外的任意镜片区域：窗口立即跟手，液面按速度反向倾斜并在松手后弹簧回正。18% 与 95% 使用严格线性体积映射；圆角外只显示桌面背景，不存在灰色矩形底板。</p>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const persistentSlosh = params.get('motion') === 'slosh';
+    const requestedScene = params.get('scene');
+    if (requestedScene === 'light' || requestedScene === 'dark') {
+      document.body.dataset.scene = requestedScene;
+    }
+    if (params.get('isolated') === '1') document.body.classList.add('isolated');
+
+    const widget = document.querySelector('.widget');
+    const chambers = [...document.querySelectorAll('.chamber')];
+    const switcher = document.querySelector('.scene-switch');
+    let phase = 0;
+    let slosh = 0;
+    let targetSlosh = persistentSlosh ? 5.5 : 0;
+    let sloshY = persistentSlosh ? -5 : 0;
+    let dragging = false;
+    let pointerId = null;
+    let originX = 0;
+    let originY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let lastTime = 0;
+
+    function wavePath(width, height, y, amplitude, phaseOffset) {
+      const points = [];
+      for (let x = -12; x <= width + 12; x += 12) {
+        const wave = Math.sin((x / width) * Math.PI * 2.15 + phase + phaseOffset) * amplitude;
+        const second = Math.sin((x / width) * Math.PI * 4.4 - phase * .66) * amplitude * .25;
+        points.push(`${x},${Math.max(2, Math.min(height - 1, y + wave + second))}`);
+      }
+      return `M ${points.join(' L ')} L ${width + 12},${height + 12} L -12,${height + 12} Z`;
+    }
+
+    function render() {
+      phase += dragging ? .075 : .028;
+      slosh += (targetSlosh - slosh) * (dragging ? .24 : .075);
+      if (!dragging && !persistentSlosh) targetSlosh *= .925;
+      sloshY += ((dragging ? Math.abs(targetSlosh) * .55 : 0) - sloshY) * .09;
+      widget.style.setProperty('--slosh', `${slosh.toFixed(2)}deg`);
+      widget.style.setProperty('--slosh-y', `${sloshY.toFixed(2)}px`);
+
+      chambers.forEach((chamber, index) => {
+        const value = Number(chamber.dataset.value);
+        const height = 205;
+        const base = height * (1 - value / 100);
+        const amplitude = 3.2 + Math.min(4.8, Math.abs(slosh) * .62);
+        const paths = chamber.querySelectorAll('path[class^="liquid-"]');
+        paths[0].setAttribute('d', wavePath(292, height, base - 2, amplitude * .68, index * .9 + 1.2));
+        paths[1].setAttribute('d', wavePath(292, height, base + 1.5, amplitude, index * .7));
+      });
+      requestAnimationFrame(render);
+    }
+
+    widget.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('button')) return;
+      dragging = true;
+      pointerId = event.pointerId;
+      widget.setPointerCapture(pointerId);
+      const rect = widget.getBoundingClientRect();
+      widget.style.transform = 'none';
+      widget.style.left = `${rect.left}px`;
+      widget.style.top = `${rect.top}px`;
+      originX = event.clientX;
+      originY = event.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      lastTime = performance.now();
+    });
+
+    widget.addEventListener('pointermove', (event) => {
+      if (!dragging || event.pointerId !== pointerId) return;
+      const now = performance.now();
+      const dt = Math.max(8, now - lastTime);
+      const velocityX = (event.clientX - lastX) / dt;
+      const velocityY = (event.clientY - lastY) / dt;
+      targetSlosh = Math.max(-6, Math.min(6, -velocityX * 3.8));
+      sloshY = Math.max(-7, Math.min(7, velocityY * 2.4));
+      const nextLeft = Math.max(0, Math.min(innerWidth - widget.offsetWidth, startLeft + event.clientX - originX));
+      const nextTop = Math.max(0, Math.min(innerHeight - widget.offsetHeight, startTop + event.clientY - originY));
+      widget.style.left = `${nextLeft}px`;
+      widget.style.top = `${nextTop}px`;
+      lastX = event.clientX;
+      lastY = event.clientY;
+      lastTime = now;
+    });
+
+    function release(event) {
+      if (!dragging || event.pointerId !== pointerId) return;
+      dragging = false;
+      widget.releasePointerCapture(pointerId);
+      pointerId = null;
+    }
+
+    widget.addEventListener('pointerup', release);
+    widget.addEventListener('pointercancel', release);
+    switcher.addEventListener('click', () => {
+      document.body.dataset.scene = document.body.dataset.scene === 'light' ? 'dark' : 'light';
+    });
+    render();
+  </script>
+</body>
+</html>
