@@ -21,14 +21,14 @@ const PALETTES: Record<Accent, OpticalPalette> = {
   cyan: {
     top: [0.34, 0.84, 0.96],
     middle: [0.015, 0.37, 0.58],
-    deep: [0.0, 0.105, 0.18],
+    deep: [0.0, 0.17, 0.28],
     absorption: [2.15, 0.78, 0.34],
     accent: [0.32, 0.85, 1],
   },
   mint: {
     top: [0.4, 0.88, 0.78],
     middle: [0.012, 0.4, 0.33],
-    deep: [0.0, 0.115, 0.105],
+    deep: [0.0, 0.16, 0.14],
     absorption: [2.05, 0.64, 0.5],
     accent: [0.45, 0.94, 0.82],
   },
@@ -169,7 +169,7 @@ void main() {
   }
 
   float edgeDistance = -sd;
-  float wallWidth = 13.0 * ratio;
+  float wallWidth = 16.0 * ratio;
   float rim = 1.0 - smoothstep(0.0, wallWidth, edgeDistance);
   float rimCore = pow(rim, 1.8);
 
@@ -253,15 +253,19 @@ void main() {
     float density = fluidFbm(flowDomain + (domainWarp - 0.5) * 2.35 + vec2(0.0, uTime * 0.13));
     float ribbon = smoothstep(0.56, 0.78, density)
       * (1.0 - smoothstep(0.8, 0.94, density));
-    body *= mix(0.88, 1.08, density);
-    body += uAccent * ribbon * mix(0.062, 0.026, depth);
+    float textureWeight = mix(0.28, 1.0, smoothstep(0.18, 0.92, depth));
+    body *= 1.0 + (density - 0.5) * 0.16 * textureWeight;
+    body += uAccent * ribbon * mix(0.018, 0.062, depth) * textureWeight;
 
     float noiseStep = 0.035;
     float densityX = fluidFbm(flowDomain + vec2(noiseStep, 0.0) + (domainWarp - 0.5) * 2.35);
     float densityY = fluidFbm(flowDomain + vec2(0.0, noiseStep) + (domainWarp - 0.5) * 2.35);
     vec2 densityNormal = vec2(densityX - density, densityY - density);
     float refractedHighlight = pow(saturate(0.5 + dot(normalize(densityNormal + vec2(0.001)), vec2(-0.66, -0.75)) * 0.5), 7.0);
-    body += vec3(0.72, 0.98, 1.0) * refractedHighlight * 0.045;
+    body += vec3(0.72, 0.98, 1.0) * refractedHighlight * 0.035 * textureWeight;
+
+    float lowLevelBoost = 1.0 + (1.0 - smoothstep(8.0, 55.0, uRemaining)) * 0.42;
+    body *= lowLevelBoost;
 
     float aspect = uResolution.x / uResolution.y;
     for (int bubbleIndex = 0; bubbleIndex < 10; bubbleIndex += 1) {

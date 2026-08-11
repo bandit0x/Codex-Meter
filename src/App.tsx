@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { FluidReservoir } from "./FluidReservoir";
+import { OpticalShell } from "./OpticalShell";
 import {
   enableTemporaryClickThrough,
   loadDisplayPreferences,
@@ -493,6 +494,11 @@ export function App({
       onPointerCancel={handleDragEnd}
     >
       <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""}`}>
+        <OpticalShell
+          dragging={isWindowDragging}
+          reducedMotion={preferences.reducedMotion}
+          opacity={preferences.opacity}
+        />
         <span className="rim-glint" aria-hidden="true" />
         <div className="drag-rail" aria-hidden="true" />
 

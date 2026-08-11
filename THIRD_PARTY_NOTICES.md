@@ -23,3 +23,14 @@ retains the license files shipped in Microsoft's runtime package.
 No project source, credentials, logs, or build artifacts are uploaded by this
 integration. Authentication remains owned by Codex in the current Windows
 user profile.
+
+## Canvas UI GlassVanilla
+
+The optical shell shader adapts rounded-SDF, Fresnel-Schlick, chromatic
+dispersion and GGX ideas from Canvas UI's `GlassVanilla` component.
+Copyright (c) 2026 David Haz. Licensed under the MIT License with Commons
+Clause; it is used only as part of this application and is not redistributed
+as a standalone component.
+
+- Source: <https://github.com/DavidHDev/canvas-ui>
+- License: <https://github.com/DavidHDev/canvas-ui/blob/main/LICENSE.md>
