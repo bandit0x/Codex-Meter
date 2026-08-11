@@ -1,5 +1,6 @@
 param(
-    [string]$Version = "0.1.0"
+    [string]$Version = "0.1.0",
+    [string]$WebView2RuntimePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,6 +10,14 @@ $sourceExe = Join-Path $projectRoot "src-tauri\target\release\codex-credits-view
 $sourceRuntime = Join-Path $projectRoot "node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe"
 $outputRoot = Join-Path $projectRoot "release\CodexCapacity-$Version-win-x64"
 $runtimeDir = Join-Path $outputRoot "codex-runtime\bin"
+$webview2Dir = Join-Path $outputRoot "webview2-runtime"
+
+if ([string]::IsNullOrWhiteSpace($WebView2RuntimePath)) {
+    $WebView2RuntimePath = Get-ChildItem -LiteralPath (Join-Path $projectRoot ".scratch\tools\webview2-fixed") -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "Microsoft.WebView2.FixedVersionRuntime.*.x64" } |
+        Sort-Object Name -Descending |
+        Select-Object -First 1 -ExpandProperty FullName
+}
 
 if (-not (Test-Path -LiteralPath $sourceExe -PathType Leaf)) {
     throw "Release executable not found: $sourceExe"
@@ -16,10 +25,25 @@ if (-not (Test-Path -LiteralPath $sourceExe -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $sourceRuntime -PathType Leaf)) {
     throw "Pinned official Codex runtime not found. Run npm.cmd install first."
 }
+if ([string]::IsNullOrWhiteSpace($WebView2RuntimePath) -or
+    -not (Test-Path -LiteralPath (Join-Path $WebView2RuntimePath "msedgewebview2.exe") -PathType Leaf) -or
+    -not (Test-Path -LiteralPath (Join-Path $WebView2RuntimePath "msedge.dll") -PathType Leaf)) {
+    throw "Complete WebView2 Fixed Runtime not found. Run scripts\fetch-webview2-fixed-runtime.ps1 first."
+}
+
+$webviewSignature = Get-AuthenticodeSignature -LiteralPath (Join-Path $WebView2RuntimePath "msedgewebview2.exe")
+if ($webviewSignature.Status -ne "Valid" -or $webviewSignature.SignerCertificate.Subject -notmatch "Microsoft Corporation") {
+    throw "WebView2 runtime signature is not a valid Microsoft signature."
+}
 
 [System.IO.Directory]::CreateDirectory($runtimeDir) | Out-Null
+if (Test-Path -LiteralPath $webview2Dir) {
+    Remove-Item -LiteralPath $webview2Dir -Recurse -Force
+}
+[System.IO.Directory]::CreateDirectory($webview2Dir) | Out-Null
 Copy-Item -LiteralPath $sourceExe -Destination (Join-Path $outputRoot "Codex Capacity.exe") -Force
 Copy-Item -LiteralPath $sourceRuntime -Destination (Join-Path $runtimeDir "codex.exe") -Force
+Copy-Item -Path (Join-Path $WebView2RuntimePath "*") -Destination $webview2Dir -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "THIRD_PARTY_NOTICES.md") -Destination $outputRoot -Force
 
@@ -30,6 +54,8 @@ $manifest = [ordered]@{
     product = "Codex Capacity"
     version = $Version
     platform = "windows-x64"
+    webview2Mode = "fixed-runtime"
+    webview2Version = ([System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $webview2Dir "msedgewebview2.exe")).ProductVersion)
     sourceCommit = (git -c safe.directory=$projectRoot rev-parse --short HEAD 2>$null)
     generatedAt = (Get-Date).ToUniversalTime().ToString("o")
     files = @($files | ForEach-Object {

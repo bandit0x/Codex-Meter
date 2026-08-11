@@ -35,6 +35,15 @@ process but cannot enumerate or capture its window. The 600x260 browser render
 is diagnostic only; real-window drag, shell inertia and post-stop liquid motion
 still require capture in a visible interactive session.
 
+**WebView2 portability regression and fix (2026-08-11):** the first unpacked
+portable directory still depended on a machine-wide WebView2 installation and
+failed on the user's target machine. The package now carries Microsoft Edge
+WebView2 Fixed Runtime 151.0.4129.78 beside the executable, verifies its
+Microsoft Authenticode signature while packaging, and refuses incomplete
+runtimes. A release smoke test observed seven `msedgewebview2` processes, all
+loaded from the package-local `webview2-runtime` directory. This startup
+boundary is Verified; visual and motion acceptance remains blocked separately.
+
 - [x] 当前来源版本可生成明确可定位的便携产物，并通过发布目录启动烟雾测试。
 - [x] 目标机器真实 Codex 冒烟检查对照五小时、一周、重置和新鲜度字段，且不消费 Full Reset Credit。
 - [x] 隔离数据目录端到端检查覆盖首次启动、重新打开、偏好恢复与至少一个可行动失败路径。

@@ -5,6 +5,30 @@ use capacity::{CapacityService, CapacitySnapshot, Diagnostic};
 use preferences::{restore_window_position, DisplayPreferences, PreferencesStore};
 use tauri::{Manager, State, WebviewWindow, WindowEvent};
 
+#[cfg(target_os = "windows")]
+const FIXED_WEBVIEW2_DIRECTORY: &str = "webview2-runtime";
+
+#[cfg(target_os = "windows")]
+fn bundled_webview2_runtime(executable: &std::path::Path) -> Option<std::path::PathBuf> {
+    let runtime = executable.parent()?.join(FIXED_WEBVIEW2_DIRECTORY);
+    let executable_exists = runtime.join("msedgewebview2.exe").is_file();
+    let engine_exists = runtime.join("msedge.dll").is_file();
+    (executable_exists && engine_exists).then_some(runtime)
+}
+
+#[cfg(target_os = "windows")]
+fn configure_bundled_webview2_runtime() {
+    if std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER").is_some() {
+        return;
+    }
+    let Ok(executable) = std::env::current_exe() else {
+        return;
+    };
+    if let Some(runtime) = bundled_webview2_runtime(&executable) {
+        std::env::set_var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", runtime);
+    }
+}
+
 #[tauri::command]
 async fn read_capacity_snapshot(
     service: State<'_, CapacityService>,
@@ -53,6 +77,9 @@ async fn enable_temporary_click_through(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    configure_bundled_webview2_runtime();
+
     tauri::Builder::default()
         .manage(CapacityService::from_environment())
         .setup(|app| {
@@ -78,4 +105,34 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Codex Capacity");
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod webview2_tests {
+    use super::*;
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn finds_only_a_complete_runtime_next_to_the_portable_executable() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("crv-webview2-{unique}"));
+        let executable = root.join("Codex Capacity.exe");
+        let runtime = root.join(FIXED_WEBVIEW2_DIRECTORY);
+        fs::create_dir_all(&runtime).expect("runtime directory");
+        fs::write(&executable, []).expect("portable executable fixture");
+
+        assert_eq!(bundled_webview2_runtime(&executable), None);
+        fs::write(runtime.join("msedgewebview2.exe"), []).expect("runtime executable fixture");
+        assert_eq!(bundled_webview2_runtime(&executable), None);
+        fs::write(runtime.join("msedge.dll"), []).expect("runtime engine fixture");
+        assert_eq!(bundled_webview2_runtime(&executable), Some(runtime));
+
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
 }

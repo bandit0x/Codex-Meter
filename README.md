@@ -6,7 +6,7 @@ five-hour and weekly Remaining Capacity with equal visual priority.
 
 ## Run the portable build
 
-1. Keep `Codex Capacity.exe` and the `codex-runtime` directory together.
+1. Keep `Codex Capacity.exe`, `codex-runtime`, and `webview2-runtime` together.
 2. Double-click `Codex Capacity.exe`.
 3. Codex must already be authenticated for the same Windows user.
 4. Drag the top edge to move the overlay. Click the arrow for reset details,
@@ -36,6 +36,13 @@ The reproducible portable directory is generated with:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\package-portable.ps1
+```
+
+Before the first portable package on a clean checkout, download and verify the
+pinned Microsoft-signed WebView2 Fixed Runtime:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\fetch-webview2-fixed-runtime.ps1
 ```
 
 See `PRODUCT.md`, `DESIGN.md`, and `THIRD_PARTY_NOTICES.md` for the approved
