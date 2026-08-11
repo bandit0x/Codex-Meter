@@ -19,18 +19,18 @@ interface OpticalPalette {
 
 const PALETTES: Record<Accent, OpticalPalette> = {
   cyan: {
-    top: [0.34, 0.84, 0.96],
-    middle: [0.015, 0.37, 0.58],
-    deep: [0.0, 0.17, 0.28],
-    absorption: [2.15, 0.78, 0.34],
-    accent: [0.32, 0.85, 1],
+    top: [0.48, 0.94, 1.0],
+    middle: [0.018, 0.52, 0.76],
+    deep: [0.0, 0.23, 0.39],
+    absorption: [1.7, 0.62, 0.25],
+    accent: [0.38, 0.9, 1.0],
   },
   mint: {
-    top: [0.4, 0.88, 0.78],
-    middle: [0.012, 0.4, 0.33],
-    deep: [0.0, 0.16, 0.14],
-    absorption: [2.05, 0.64, 0.5],
-    accent: [0.45, 0.94, 0.82],
+    top: [0.54, 0.96, 0.85],
+    middle: [0.016, 0.49, 0.41],
+    deep: [0.0, 0.2, 0.18],
+    absorption: [1.78, 0.54, 0.39],
+    accent: [0.5, 0.98, 0.86],
   },
 };
 
@@ -111,6 +111,19 @@ float sampleSurface(float normalizedX) {
   int lower = int(floor(scaled));
   int upper = min(lower + 1, ${OPTICAL_SURFACE_NODE_COUNT - 1});
   return mix(uSurface[lower], uSurface[upper], fract(scaled));
+}
+
+float freeSurfaceOffset(float normalizedX) {
+  float x = saturate(normalizedX);
+  float wallRise = -5.2 * (
+    exp(-x * 18.0) + exp(-(1.0 - x) * 18.0)
+  ) + 0.58;
+  float ambientRipple = (
+    sin(x * 24.0 + uTime * 1.15)
+    + sin(x * 41.0 - uTime * 0.72) * 0.46
+    + sin(x * 13.0 - uTime * 0.41) * 0.38
+  ) * mix(1.85, 0.34, uActive);
+  return sampleSurface(x) + wallRise + ambientRipple;
 }
 
 float causticEdge(vec2 point) {
@@ -194,38 +207,50 @@ void main() {
   float normalizedX = saturate((fragment.x - inset) / max(uResolution.x - inset * 2.0, 1.0));
   float innerHeight = uResolution.y - inset * 2.0;
   float baseSurface = inset + innerHeight * (1.0 - saturate(uRemaining / 100.0));
-  float wallRise = -5.2 * ratio * (
-    exp(-normalizedX * 18.0) + exp(-(1.0 - normalizedX) * 18.0)
-  ) + 0.58 * ratio;
-  float ambientRipple = (
-    sin(normalizedX * 24.0 + uTime * 1.15)
-    + sin(normalizedX * 41.0 - uTime * 0.72) * 0.46
-  ) * mix(0.34, 0.11, uActive) * ratio;
-  float surfaceY = baseSurface + sampleSurface(normalizedX) * ratio + wallRise + ambientRipple;
-  float liquidMask = smoothstep(surfaceY - 0.75 * ratio, surfaceY + 0.75 * ratio, fragment.y);
+  float surfaceY = baseSurface + freeSurfaceOffset(normalizedX) * ratio;
+  float surfaceStep = 0.009;
+  float surfaceBefore = freeSurfaceOffset(normalizedX - surfaceStep);
+  float surfaceAfter = freeSurfaceOffset(normalizedX + surfaceStep);
+  float surfaceSlope = (surfaceAfter - surfaceBefore)
+    / max(surfaceStep * 2.0 * (uResolution.x / ratio), 1.0);
+  vec2 surfaceNormal = normalize(vec2(-surfaceSlope * 2.6, -1.0));
+  float surfaceRefraction = surfaceNormal.x * mix(3.0, 7.5, uActive) * ratio;
+  float liquidMask = smoothstep(surfaceY - 0.9 * ratio, surfaceY + 0.9 * ratio, fragment.y);
   float liquidDepthPx = max(inset + innerHeight - surfaceY, 1.0);
   float depth = saturate((fragment.y - surfaceY) / liquidDepthPx);
 
   vec3 color = refracted;
   if (liquidMask > 0.001) {
     float horizontalVolume = sqrt(max(0.0, 1.0 - pow((normalizedX - 0.5) * 2.0, 2.0)));
-    float opticalDepth = depth * mix(1.28, 0.66, horizontalVolume);
+    float opticalDepth = depth * mix(1.08, 0.58, horizontalVolume);
     vec3 transmission = exp(-uAbsorption * opticalDepth);
-    vec3 body = mix(uTop, uMiddle, smoothstep(0.015, 0.18, depth));
-    body = mix(body, uDeep, smoothstep(0.32, 1.0, pow(depth, 0.84)));
-    body *= mix(vec3(0.44), vec3(1.08), horizontalVolume);
-    body *= mix(vec3(0.54), transmission + vec3(0.12), 0.76);
+    vec2 liquidUv = vec2(
+      saturate((fragment.x + surfaceRefraction - inset) / max(uResolution.x - inset * 2.0, 1.0)),
+      uv.y
+    );
+    vec3 refractedBackdrop = chamberColor(liquidUv);
+    vec3 waterTint = mix(uTop, uMiddle, smoothstep(0.02, 0.3, depth));
+    waterTint = mix(waterTint, uDeep, smoothstep(0.48, 1.0, depth));
+    vec3 transmittedLight = refractedBackdrop * transmission * (0.74 + horizontalVolume * 0.3);
+    vec3 scatteredLight = waterTint * (0.44 + (vec3(1.0) - transmission) * 0.72);
+    vec3 body = transmittedLight + scatteredLight;
+    body *= mix(vec3(0.58), vec3(1.08), horizontalVolume);
 
     float flowTime = uTime * mix(0.16, 0.48, uActive);
-    vec2 causticUv = vec2(normalizedX * 15.0, depth * 10.5 + flowTime);
+    vec2 causticUv = vec2(
+      normalizedX * 10.2 + surfaceNormal.x * 2.6,
+      depth * 7.2 + flowTime
+    );
     causticUv += vec2(
       sin(causticUv.y * 0.72 + flowTime * 0.8),
       sin(causticUv.x * 0.54 - flowTime * 0.64)
     ) * 0.34;
     float caustic = causticEdge(causticUv);
     float secondaryCaustic = causticEdge(causticUv * 0.67 + vec2(3.1, -flowTime * 0.38));
-    float floorFocus = pow(smoothstep(0.42, 1.0, depth), 1.7);
-    body += uAccent * (caustic * 0.62 + secondaryCaustic * 0.38) * floorFocus * 0.19;
+    float floorFocus = mix(0.24, 1.0, pow(smoothstep(0.28, 1.0, depth), 1.45));
+    float lowLevelCaustic = mix(2.35, 1.0, smoothstep(18.0, 62.0, uRemaining));
+    body += uAccent * (caustic * 0.68 + secondaryCaustic * 0.32)
+      * floorFocus * 0.16 * lowLevelCaustic;
 
     float filamentA = 1.0 - smoothstep(
       0.018,
@@ -237,12 +262,19 @@ void main() {
       0.13,
       abs(sin(causticUv.y * 1.18 - sin(causticUv.x * 0.63 - flowTime * 0.7) * 1.45))
     );
-    body += uAccent * max(filamentA, filamentB) * floorFocus * 0.085;
+    body += uAccent * max(filamentA, filamentB) * floorFocus * 0.072;
 
     float volumeGlow = exp(-pow((normalizedX - 0.52) * 2.1, 2.0))
       * exp(-pow((depth - 0.28) * 2.2, 2.0));
-    body += uAccent * volumeGlow * 0.065;
-    body += uAccent * mix(0.09, 0.035, depth) * horizontalVolume;
+    body += uAccent * volumeGlow * 0.1;
+    body += uAccent * mix(0.13, 0.045, depth) * horizontalVolume;
+
+    float lightSheet = exp(-pow(
+      sin(normalizedX * 8.4 - depth * 3.8 + flowTime * 0.52),
+      2.0
+    ) / 0.12) * exp(-pow((depth - 0.58) / 0.58, 2.0));
+    body += mix(uAccent, vec3(0.92, 1.0, 1.0), 0.55)
+      * lightSheet * 0.048 * horizontalVolume;
 
     vec2 flowDomain = vec2(normalizedX * 5.8, depth * 6.4);
     float flowSpeed = mix(0.24, 0.72, uActive);
@@ -264,8 +296,10 @@ void main() {
     float refractedHighlight = pow(saturate(0.5 + dot(normalize(densityNormal + vec2(0.001)), vec2(-0.66, -0.75)) * 0.5), 7.0);
     body += vec3(0.72, 0.98, 1.0) * refractedHighlight * 0.035 * textureWeight;
 
-    float lowLevelBoost = 1.0 + (1.0 - smoothstep(8.0, 55.0, uRemaining)) * 0.42;
+    float lowLevelBoost = 1.0 + (1.0 - smoothstep(8.0, 55.0, uRemaining)) * 0.22;
     body *= lowLevelBoost;
+    float bottomLens = exp(-pow((1.0 - depth) / 0.085, 2.0));
+    body += uAccent * bottomLens * (0.16 + 0.14 * horizontalVolume);
 
     float aspect = uResolution.x / uResolution.y;
     for (int bubbleIndex = 0; bubbleIndex < 10; bubbleIndex += 1) {
@@ -284,10 +318,13 @@ void main() {
     color = mix(color, body, liquidMask);
 
     float surfaceDistance = abs(fragment.y - surfaceY) / ratio;
-    float meniscus = exp(-surfaceDistance * 0.72);
-    float underside = exp(-pow((fragment.y - surfaceY - 4.0 * ratio) / (3.5 * ratio), 2.0));
-    color += vec3(0.76, 1.0, 0.97) * meniscus * 0.72;
-    color -= vec3(0.0, 0.07, 0.09) * underside * 0.52;
+    float meniscus = exp(-surfaceDistance * 0.82);
+    float surfaceLens = exp(-pow((fragment.y - surfaceY - 2.7 * ratio) / (3.8 * ratio), 2.0));
+    float underside = exp(-pow((fragment.y - surfaceY - 6.0 * ratio) / (4.6 * ratio), 2.0));
+    float surfaceFresnel = fresnelSchlick(abs(surfaceNormal.y), 0.021);
+    color += mix(uAccent, vec3(0.94, 1.0, 1.0), 0.72) * meniscus * 0.92;
+    color += uAccent * surfaceLens * (0.16 + surfaceFresnel * 1.4);
+    color -= vec3(0.0, 0.055, 0.075) * underside * 0.58;
     float travelingGlint = pow(0.5 + 0.5 * sin(normalizedX * 32.0 - uTime * 1.8), 9.0);
     float glintBand = exp(-pow((fragment.y - surfaceY - 6.0 * ratio) / (7.0 * ratio), 2.0));
     color += vec3(0.72, 1.0, 0.96) * travelingGlint * glintBand * 0.13;

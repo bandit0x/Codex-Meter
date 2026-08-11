@@ -138,7 +138,7 @@ void main() {
   float outerLine = exp(-pow((sd + 0.9 * ratio) / (0.72 * ratio), 2.0));
   float innerLine = exp(-pow((sd + edgeWidth * 0.84) / (0.92 * ratio), 2.0));
   float internalBounce = exp(-pow((sd + edgeWidth * 0.48) / (2.8 * ratio), 2.0));
-  glass += vec3(0.86, 0.97, 1.0) * outerLine * 0.78;
+  glass += vec3(0.7, 0.92, 1.0) * outerLine * 0.54;
   glass += vec3(0.54, 0.88, 1.0) * innerLine * 0.42;
   glass += vec3(0.05, 0.26, 0.38) * internalBounce * 0.38;
 
@@ -148,7 +148,7 @@ void main() {
   float lowerReflection = exp(-pow((uv.y - 0.965) / 0.028, 2.0))
     * smoothstep(0.12, 0.4, uv.x)
     * (1.0 - smoothstep(0.63, 0.92, uv.x));
-  glass += vec3(0.9, 0.98, 1.0) * topReflection * 0.58;
+  glass += vec3(0.78, 0.95, 1.0) * topReflection * 0.42;
   glass += vec3(0.1, 0.53, 0.68) * lowerReflection * 0.22;
 
   float alpha = mask * mix(0.72, 0.98, uOpacity) * (0.84 + rim * 0.16);
