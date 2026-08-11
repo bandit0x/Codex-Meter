@@ -1,6 +1,8 @@
 # V3 Design Contract — Optical Reservoir
 
-Status: approval candidate. Product UI implementation remains frozen.
+Status: superseded after the user rejected the flat glass/liquid material. The
+dual-inertia interaction findings remain input to V4; this file is no longer an
+approval candidate. Product UI implementation remains frozen.
 
 ## Decision
 
@@ -59,6 +61,11 @@ failure contract, manual launch, and portable Windows target.
   still have visible velocity and then settle within 900 ms.
 - Re-grabbing during either phase cancels the prior shell trajectory and uses
   the new gesture as the sole input. No queued animation may resume afterward.
+- The approval prototype opens with an automatic four-phase demonstration:
+  shell acceleration, pointer release, shell coast, and post-stop liquid
+  oscillation. A replay control repeats the exact sequence. This prototype-only
+  demonstration intentionally overrides the OS reduced-motion preference;
+  production behavior still follows the reduced-motion rule above.
 
 ## Real-window proof required after approval
 

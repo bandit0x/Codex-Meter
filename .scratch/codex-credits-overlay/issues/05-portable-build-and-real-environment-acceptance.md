@@ -13,9 +13,20 @@ checks now have current evidence in `docs/verification/VERIFICATION.md`.
 
 **V2 rejection (2026-08-11):** real use exposed gray native chrome, an
 unusable drag target, compressed liquid-height mapping, imperceptible motion,
-no drag slosh, and insufficient optical/3D depth. Implementation is frozen;
-the V3 approval candidate and revised acceptance gates are under
-`.impeccable/mocks/rework-v3/`.
+no drag slosh, and insufficient optical/3D depth. Implementation is frozen.
+V3 established the dual-inertia interaction but its glass and liquid still
+looked like decorative fills; the current V4 material candidate and research
+are under `.impeccable/mocks/rework-v4/`.
+
+**V3 approval-proof correction (2026-08-11):** the initial interaction file
+could open without any observable inertia because it depended on a manual fast
+flick and could clamp motion to zero in a narrow preview. The revised prototype
+opens with a repeating, labeled shell-coast + liquid-oscillation sequence.
+
+**V4 material candidate (2026-08-11):** GitHub research selected MIT optical
+glass and fluid-solver references, rejected unlicensed/over-broad dependencies,
+and produced volume-conserving static and four-phase material drawings. Product
+implementation remains blocked on user approval.
 
 - [x] 当前来源版本可生成明确可定位的便携产物，并通过发布目录启动烟雾测试。
 - [x] 目标机器真实 Codex 冒烟检查对照五小时、一周、重置和新鲜度字段，且不消费 Full Reset Credit。

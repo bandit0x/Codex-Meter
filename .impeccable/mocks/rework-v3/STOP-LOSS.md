@@ -25,15 +25,24 @@ Status: V2 visual acceptance withdrawn on 2026-08-11.
 `Codex app-server → CapacitySnapshot → validated Remaining Capacity → linear
 fill ratio → SVG liquid geometry → front lens and readable numeric overlay`
 
-`pointer down → 4 px drag threshold → Tauri window position → persisted,
-monitor-clamped coordinates`
+`pointer down → 4 px drag threshold → Tauri window position → smoothed shell
+velocity → release coast → persisted, monitor-clamped coordinates`
 
-`pointer velocity → bounded slosh variables → liquid/caustic transform →
-interruptible spring settle on release`
+`shell acceleration/deceleration → independent liquid tilt/lift velocity →
+liquid/caustic transform → post-shell damped oscillation → settle`
+
+## V3 motion-proof correction
+
+The first V3 interaction file did not prove its motion on open. It required a
+manual fast flick, allowed a 600×260 preview viewport to clamp shell travel to
+zero, and disabled inertia when the host reported reduced motion. The corrected
+approval prototype auto-runs and repeats the full sequence, keeps manual replay,
+uses an unbounded demonstration stage when the preview is narrow, and labels
+each phase. This exception exists only in the approval prototype; the product
+still honors reduced motion.
 
 ## Scope decision
 
 Remake the UI material and drag controller. Keep the backend protocol,
 read-only boundaries, quota semantics, issue-tracker setup, packaging method,
 manual startup, and equal five-hour/week information architecture.
-

@@ -4,8 +4,8 @@
 
 V2 automatic checks remain historical evidence, but the user rejected its real
 window on 2026-08-11. The current portable directory is not an accepted visual
-deliverable. Product implementation is frozen until the V3 Optical Reservoir
-design in `.impeccable/mocks/rework-v3/` is approved.
+deliverable. Product implementation is frozen until the V4 Volumetric Fluid
+Lens material in `.impeccable/mocks/rework-v4/` is approved.
 
 The rejection covers five material failures: rectangular gray native chrome,
 an effectively unusable 18 px drag rail, a compressed non-linear liquid-height

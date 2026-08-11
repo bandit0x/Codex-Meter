@@ -38,7 +38,8 @@
     body.isolated { background: transparent; }
     body.isolated .editor-chrome,
     body.isolated .caption,
-    body.isolated .scene-switch,
+    body.isolated .demo-controls,
+    body.isolated .motion-readout,
     body.isolated .stage-note { display: none; }
     body.isolated .widget { left: 0; top: 0; transform: none; }
 
@@ -93,11 +94,17 @@
 
     .caption small { opacity: .66; font-weight: 480; }
 
-    .scene-switch {
+    .demo-controls {
       position: absolute;
       z-index: 20;
       top: 20px;
       right: 24px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .scene-switch,
+    .demo-switch {
       height: 34px;
       padding: 0 13px;
       border: 1px solid rgba(125, 184, 212, .32);
@@ -107,6 +114,33 @@
       backdrop-filter: blur(14px);
       cursor: pointer;
     }
+
+    .demo-switch {
+      color: #e9fbff;
+      border-color: rgba(83, 220, 244, .5);
+      background: rgba(29, 152, 181, .18);
+    }
+
+    .motion-readout {
+      position: absolute;
+      z-index: 20;
+      top: 68px;
+      right: 24px;
+      width: 226px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      color: currentColor;
+      background: rgba(8, 22, 32, .54);
+      box-shadow: 0 8px 24px rgba(0, 6, 12, .22);
+      backdrop-filter: blur(16px);
+      font-size: 11px;
+      line-height: 1.45;
+      pointer-events: none;
+    }
+
+    body[data-scene="light"] .motion-readout { background: rgba(235, 246, 251, .72); }
+    .motion-readout b { display: block; color: var(--mint); letter-spacing: .06em; }
+    .motion-readout span { opacity: .75; }
 
     .stage-note {
       position: absolute;
@@ -424,7 +458,11 @@
 <body data-scene="dark">
   <div class="editor-chrome" aria-hidden="true"></div>
   <div class="caption"><i></i>V3 · OPTICAL RESERVOIR <small>交互设计稿 · 演示数据</small></div>
-  <button class="scene-switch" type="button">切换明暗桌面</button>
+  <div class="demo-controls">
+    <button class="demo-switch" type="button">重播双重惯性</button>
+    <button class="scene-switch" type="button">切换明暗桌面</button>
+  </div>
+  <div class="motion-readout" aria-live="polite"><b>AUTO · 准备演示</b><span>舱体与液体使用两套独立惯性状态</span></div>
 
   <main class="widget" aria-label="Codex Capacity V3 prototype">
     <span class="optical-glint" aria-hidden="true"></span>
@@ -460,12 +498,13 @@
     <footer class="footer"><span>FULL RESETS <b>2</b></span><span>Updated now</span><button class="expand" type="button" aria-label="展开详情"><svg viewBox="0 0 24 24"><path d="m8 9.5 4 4 4-4"/></svg></button></footer>
   </main>
 
-  <p class="stage-note">拖动除按钮外的任意镜片区域：松手后舱体按释放速度短距滑行；液体作为独立质量体滞后、反冲并衰减回荡。18% 与 95% 使用严格线性体积映射；圆角外只显示桌面背景，不存在灰色矩形底板。</p>
+  <p class="stage-note">打开后自动演示：加速拖动 → 松手后舱体滑行 → 舱体停止 → 液体继续反冲回荡。也可手动拖动任意非按钮镜片区域；本设计稿会强制展示惯性，不受系统“减少动画”设置影响。</p>
 
   <script>
     const params = new URLSearchParams(location.search);
     const persistentSlosh = params.get('motion') === 'slosh';
-    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reducedMotion = params.get('motion') === 'reduced';
+    const autoDemoRequested = params.get('auto') !== '0' && !persistentSlosh && !reducedMotion;
     const requestedScene = params.get('scene');
     if (requestedScene === 'light' || requestedScene === 'dark') {
       document.body.dataset.scene = requestedScene;
@@ -475,6 +514,8 @@
     const widget = document.querySelector('.widget');
     const chambers = [...document.querySelectorAll('.chamber')];
     const switcher = document.querySelector('.scene-switch');
+    const demoButton = document.querySelector('.demo-switch');
+    const motionReadout = document.querySelector('.motion-readout');
     let phase = 0;
     let liquidTilt = persistentSlosh ? 5.5 : 0;
     let liquidTiltVelocity = 0;
@@ -496,19 +537,87 @@
     let shellVelocityX = 0;
     let shellVelocityY = 0;
     let shellReady = false;
+    let demoDriving = false;
+    let demoUnbounded = false;
+    let demoToken = 0;
 
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-    function moveShell(nextX, nextY) {
+    function moveShell(nextX, nextY, clampToViewport = true) {
       const maxX = Math.max(0, innerWidth - widget.offsetWidth);
       const maxY = Math.max(0, innerHeight - widget.offsetHeight);
-      const clampedX = clamp(nextX, 0, maxX);
-      const clampedY = clamp(nextY, 0, maxY);
+      const clampedX = clampToViewport ? clamp(nextX, 0, maxX) : nextX;
+      const clampedY = clampToViewport ? clamp(nextY, 0, maxY) : nextY;
       shellX = clampedX;
       shellY = clampedY;
       widget.style.left = `${clampedX}px`;
       widget.style.top = `${clampedY}px`;
       return { hitX: clampedX !== nextX, hitY: clampedY !== nextY };
+    }
+
+    function setMotionReadout(title, detail) {
+      motionReadout.innerHTML = `<b>${title}</b><span>${detail}</span>`;
+    }
+
+    function stopAutoDemo() {
+      demoToken += 1;
+      demoDriving = false;
+      demoUnbounded = false;
+    }
+
+    function runAutoDemo() {
+      stopAutoDemo();
+      const token = demoToken;
+      const maxX = Math.max(0, innerWidth - widget.offsetWidth);
+      const maxY = Math.max(0, innerHeight - widget.offsetHeight);
+      const narrowStage = maxX < 220;
+      const startX = narrowStage ? -112 : clamp(maxX * .22, 24, maxX - 210);
+      const startY = maxY > 0 ? maxY * .5 : 0;
+      const driveDistance = narrowStage ? 118 : Math.min(190, maxX - startX - 36);
+      const driveDuration = 520;
+      const startedAt = performance.now();
+
+      widget.style.transform = 'none';
+      shellReady = true;
+      shellVelocityX = 0;
+      shellVelocityY = 0;
+      liquidTilt = 0;
+      liquidTiltVelocity = 0;
+      liquidLift = 0;
+      liquidLiftVelocity = 0;
+      demoDriving = true;
+      demoUnbounded = narrowStage;
+      moveShell(startX, startY, !narrowStage);
+      setMotionReadout('AUTO · 舱体加速', '液体因质量滞后，液面向运动反方向倾斜');
+
+      function driveShell(now) {
+        if (token !== demoToken || pointerActive) return;
+        const progress = clamp((now - startedAt) / driveDuration, 0, 1);
+        const eased = progress * progress;
+        shellVelocityX = clamp((2 * driveDistance * progress) / driveDuration, 0, .82);
+        shellVelocityY = Math.sin(progress * Math.PI) * .11;
+        moveShell(startX + driveDistance * eased, startY + Math.sin(progress * Math.PI) * 10, !narrowStage);
+        if (progress < 1) {
+          requestAnimationFrame(driveShell);
+          return;
+        }
+
+        demoDriving = false;
+        shellVelocityX = .82;
+        shellVelocityY = .1;
+        setMotionReadout('RELEASE · 舱体惯性滑行', '指针已松开；舱体仍沿释放速度前进并受摩擦减速');
+        setTimeout(() => {
+          if (token === demoToken) setMotionReadout('LIQUID · 独立反冲', '舱体接近停止；液体仍在前冲并进行二次回荡');
+        }, 340);
+        setTimeout(() => {
+          if (token === demoToken) setMotionReadout('SETTLED · 两套状态归零', '点击“重播双重惯性”，或直接手动拖拽再次体验');
+        }, 1150);
+        setTimeout(() => {
+          if (token === demoToken && autoDemoRequested) runAutoDemo();
+        }, 3100);
+      }
+
+      requestAnimationFrame(driveShell);
     }
 
     function wavePath(width, height, y, amplitude, phaseOffset) {
@@ -526,10 +635,11 @@
       const frame = dt / 16.667;
       lastFrameTime = now;
 
-      if (shellReady && !pointerActive && !persistentSlosh && !reducedMotion) {
+      if (shellReady && !pointerActive && !demoDriving && !persistentSlosh && !reducedMotion) {
         const { hitX, hitY } = moveShell(
           shellX + shellVelocityX * dt,
           shellY + shellVelocityY * dt,
+          !demoUnbounded,
         );
         if (hitX) {
           liquidTiltVelocity += clamp(shellVelocityX * 2.8, -3.2, 3.2);
@@ -579,6 +689,8 @@
 
     widget.addEventListener('pointerdown', (event) => {
       if (event.target.closest('button')) return;
+      stopAutoDemo();
+      setMotionReadout('MANUAL · 已抓取舱体', '快速拖动并松手，观察舱体滑行与液体滞后');
       pointerActive = true;
       dragging = false;
       pointerId = event.pointerId;
@@ -635,6 +747,7 @@
       dragging = false;
       widget.releasePointerCapture(pointerId);
       pointerId = null;
+      setMotionReadout('MANUAL · 已释放', '舱体开始滑行；液体将在舱体停下后继续回荡');
     }
 
     widget.addEventListener('pointerup', release);
@@ -646,7 +759,9 @@
     switcher.addEventListener('click', () => {
       document.body.dataset.scene = document.body.dataset.scene === 'light' ? 'dark' : 'light';
     });
+    demoButton.addEventListener('click', runAutoDemo);
     requestAnimationFrame(render);
+    if (autoDemoRequested) setTimeout(runAutoDemo, 650);
   </script>
 </body>
 </html>
