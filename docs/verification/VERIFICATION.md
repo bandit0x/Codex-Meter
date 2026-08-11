@@ -12,6 +12,7 @@ Node.js 24.18.0, official `@openai/codex` 0.147.0 runtime.
 **Artifact:** `release/CodexCapacity-0.1.0-win-x64/` (locally generated and
 ignored by Git). `Codex Capacity.exe` SHA-256:
 `796aaf8c44a1f4002dcf169d5816a3cde31c908b06890062afd660d91a01a4c3`.
+The final local source revision is recorded in the portable `manifest.json`.
 
 ## Reproducible checks
 
@@ -44,5 +45,3 @@ ignored by Git). `Codex Capacity.exe` SHA-256:
   Windows x64 Codex CLI runtime needed to avoid WindowsApps execution ACLs.
 - There is intentionally no installer, updater, code signature, usage history,
   notification system, startup registration, or reset redemption.
-- Release metadata currently records the pre-commit source revision; it is
-  regenerated after the local V2 commit so the final manifest is traceable.
