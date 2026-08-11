@@ -23,12 +23,19 @@ could open without any observable inertia because it depended on a manual fast
 flick and could clamp motion to zero in a narrow preview. The revised prototype
 opens with a repeating, labeled shell-coast + liquid-oscillation sequence.
 
-**V4 material candidate (2026-08-11):** GitHub research selected MIT optical
-glass and fluid-solver references, rejected unlicensed/over-broad dependencies,
-and produced volume-conserving static and four-phase material drawings. Product
-implementation remains blocked on user approval.
+**V4 implementation (2026-08-11):** the user approved Volumetric Fluid Lens.
+The implementation now uses strict linear liquid volume, independent bounded
+free-surface solvers, acceleration-driven drag slosh, native window glide,
+thick optical walls, depth absorption, particles and caustics. System shadow
+and the rectangular Acrylic plate are disabled. Automated frontend, physics,
+Rust, production-build and portable-package checks pass.
+
+**Current blocker:** the controlled automation desktop starts the Tauri/WebView2
+process but cannot enumerate or capture its window. The 600x260 browser render
+is diagnostic only; real-window drag, shell inertia and post-stop liquid motion
+still require capture in a visible interactive session.
 
 - [x] 当前来源版本可生成明确可定位的便携产物，并通过发布目录启动烟雾测试。
 - [x] 目标机器真实 Codex 冒烟检查对照五小时、一周、重置和新鲜度字段，且不消费 Full Reset Credit。
 - [x] 隔离数据目录端到端检查覆盖首次启动、重新打开、偏好恢复与至少一个可行动失败路径。
-- [ ] 真实运行截图覆盖紧凑、加载、健康、失败和收起状态，并与批准的方案 3 逐项对照；当前视觉对照失败，且专用 collapsed 形态未实现。
+- [ ] 真实运行截图覆盖紧凑、加载、健康、失败和收起状态，并与批准的 V4 图逐项对照；当前自动化桌面无法捕获 Tauri 窗口。

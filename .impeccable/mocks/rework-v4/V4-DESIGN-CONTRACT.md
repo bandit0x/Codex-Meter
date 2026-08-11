@@ -1,6 +1,6 @@
 # V4 设计合同 — Volumetric Fluid Lens
 
-状态：等待用户审批。任何 React/Tauri 产品实现仍冻结。
+状态：用户已于 2026-08-11 批准，允许进入 React/Tauri 实施与真实 WebView2 验证。
 
 ## 材质定义
 

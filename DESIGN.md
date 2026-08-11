@@ -1,8 +1,8 @@
-# Design System — Split Lens Bar
+# Design System — Volumetric Fluid Lens
 
 ## Approved direction
 
-The approved composition is **方案 3 · 单胶囊中央分舱 (Split Lens Bar)**. One continuous optical-glass capsule is divided by a restrained central refractive seam into two exactly equal capacity fields. The five-hour and weekly Quota Windows are co-primary and must remain identical in width, typography, spacing, lighting, and interaction priority.
+The approved V4 composition is **Volumetric Fluid Lens**, confirmed by the user on 2026-08-11. One continuous thick-wall optical reservoir is divided into two exactly equal capacity chambers. The five-hour and weekly quota windows are co-primary and remain identical in width, typography, spacing, lighting, and interaction priority.
 
 ## Surface and layout
 
@@ -24,8 +24,11 @@ The approved composition is **方案 3 · 单胶囊中央分舱 (Split Lens Bar)
 
 ## Material and motion
 
-- Use real window transparency/acrylic where supported, backed by restrained CSS blur and edge refraction.
-- Liquid levels communicate Remaining Capacity without replacing the numeric value.
+- The shell has an outer wall, inner wall, Fresnel rim, local internal reflection and a refractive central seam. Transparent pixels outside the rounded shell stay transparent; no rectangular system shadow or acrylic plate may remain around it.
+- Liquid height is a strict linear mapping of remaining percentage to chamber volume. The animated free surface is normalized every frame so slosh never changes the represented volume.
+- Each chamber owns independent velocity, pressure-like surface coupling, damping and free-surface state. Window acceleration drives reverse wall climb; after release the shell glides with friction while the liquid continues through front surge, backflow and at least one damped secondary oscillation.
+- Static liquid must show a curved meniscus, depth absorption, front-wall refraction, caustic structure and sparse micro-bubbles. A flat color fill, simple vertical gradient or decorative sine-wave edge is not acceptable.
+- Physics runs only while disturbed and sleeps after settling. Reduced Motion keeps the true static volume/material but removes window glide and liquid slosh.
 - No neon gaming HUD, purple gradient, ornamental gauges, excessive glow, or decorative charts.
 - Transitions are short and layout-stable; reduced-motion removes liquid drift and nonessential interpolation.
 
@@ -39,5 +42,6 @@ The approved composition is **方案 3 · 单胶囊中央分舱 (Split Lens Bar)
 
 - Final composition: `.impeccable/mocks/composition/split-lens-bar.png`
 - State coverage: `.impeccable/mocks/states/twin-cells-state-board.png`
-- Approved by the user on 2026-08-10. Do not regenerate the composition from scratch.
-
+- V4 material: `.impeccable/mocks/rework-v4/v4-volumetric-material.png`
+- V4 inertia storyboard: `.impeccable/mocks/rework-v4/v4-fluid-inertia-storyboard-v2.png`
+- V4 approved by the user on 2026-08-11. Implementation must be validated in the real WebView2/Tauri product rather than by a static SVG.

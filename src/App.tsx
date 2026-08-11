@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
+import { FluidReservoir } from "./FluidReservoir";
 import {
   enableTemporaryClickThrough,
   loadDisplayPreferences,
@@ -12,7 +13,14 @@ import type {
   DisplayPreferences,
   QuotaWindow,
 } from "./capacityTypes";
-import { setOverlayWindowLayout, type OverlayLayout } from "./windowClient";
+import { IDLE_FLUID_MOTION, type FluidMotionSample } from "./fluidPhysics";
+import {
+  getOverlayWindowPosition,
+  setOverlayWindowLayout,
+  setOverlayWindowPosition,
+  type OverlayLayout,
+  type OverlayPosition,
+} from "./windowClient";
 
 export type CapacityLoader = () => Promise<CapacitySnapshot>;
 
@@ -22,6 +30,8 @@ interface AppProps {
   savePreferences?: (preferences: DisplayPreferences) => Promise<void>;
   enableClickThrough?: (durationMs?: number) => Promise<void>;
   setWindowLayout?: (layout: OverlayLayout) => Promise<void>;
+  getWindowPosition?: () => Promise<OverlayPosition>;
+  setWindowPosition?: (position: OverlayPosition) => Promise<void>;
 }
 
 type ViewState =
@@ -88,12 +98,20 @@ function normalizeDiagnostic(error: unknown): Diagnostic {
   };
 }
 
-function Icon({ name }: { name: "chevron" | "settings" }) {
+function Icon({ name }: { name: "chevron" | "settings" | "close" }) {
   if (name === "settings") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Z" />
         <path d="M19.2 13.4a7.8 7.8 0 0 0 .1-1.4 7.8 7.8 0 0 0-.1-1.4l2-1.5-2-3.4-2.4 1a8.6 8.6 0 0 0-2.4-1.4L14 2.8h-4l-.4 2.5a8.6 8.6 0 0 0-2.4 1.4l-2.4-1-2 3.4 2 1.5A7.8 7.8 0 0 0 4.7 12c0 .5 0 .9.1 1.4l-2 1.5 2 3.4 2.4-1a8.6 8.6 0 0 0 2.4 1.4l.4 2.5h4l.4-2.5a8.6 8.6 0 0 0 2.4-1.4l2.4 1 2-3.4-2-1.5Z" />
+      </svg>
+    );
+  }
+
+  if (name === "close") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m7.5 7.5 9 9m0-9-9 9" />
       </svg>
     );
   }
@@ -109,13 +127,16 @@ function QuotaCell({
   label,
   window,
   accent,
+  motion,
+  reducedMotion,
 }: {
   label: "5 HOUR" | "WEEK";
   window: QuotaWindow | null;
   accent: "cyan" | "mint";
+  motion: FluidMotionSample;
+  reducedMotion: boolean;
 }) {
   const remaining = window?.remainingPercent ?? 0;
-  const level = 88 - remaining * 0.46;
 
   return (
     <section
@@ -123,7 +144,14 @@ function QuotaCell({
       aria-label={`${label} quota${window ? "" : " unavailable"}`}
       role="group"
     >
-      {window && <div className="liquid" style={{ "--level": `${level}%` } as React.CSSProperties} />}
+      {window && (
+        <FluidReservoir
+          remainingPercent={remaining}
+          accent={accent}
+          motion={motion}
+          reducedMotion={reducedMotion}
+        />
+      )}
       <div className="cell-content">
         <span className="quota-label">{label}</span>
         <div className="capacity-value">
@@ -198,6 +226,8 @@ export function App({
   savePreferences = saveDisplayPreferences,
   enableClickThrough = enableTemporaryClickThrough,
   setWindowLayout = setOverlayWindowLayout,
+  getWindowPosition = getOverlayWindowPosition,
+  setWindowPosition = setOverlayWindowPosition,
 }: AppProps) {
   const [view, setView] = useState<ViewState>({ kind: "loading" });
   const [lastSnapshot, setLastSnapshot] = useState<CapacitySnapshot | null>(null);
@@ -210,6 +240,22 @@ export function App({
   const [clickThroughSeconds, setClickThroughSeconds] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [controlMessage, setControlMessage] = useState<string | null>(null);
+  const [fluidMotion, setFluidMotion] = useState<FluidMotionSample>(IDLE_FLUID_MOTION);
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const dragRef = useRef({
+    pointerId: -1,
+    ready: false,
+    lastPointerX: 0,
+    lastPointerY: 0,
+    lastTime: 0,
+    positionX: 0,
+    positionY: 0,
+    velocityX: 0,
+    velocityY: 0,
+  });
+  const inertiaFrameRef = useRef<number | null>(null);
+  const motionSequenceRef = useRef(0);
+  const previousMotionVelocityRef = useRef({ x: 0, y: 0 });
 
   const load = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
@@ -264,6 +310,127 @@ export function App({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [settingsOpen]);
 
+  useEffect(() => () => {
+    if (inertiaFrameRef.current !== null) cancelAnimationFrame(inertiaFrameRef.current);
+  }, []);
+
+  const publishFluidMotion = useCallback(
+    (velocityX: number, velocityY: number, phase: FluidMotionSample["phase"]) => {
+      const previous = previousMotionVelocityRef.current;
+      const accelerationX = (velocityX - previous.x) * 8;
+      const accelerationY = (velocityY - previous.y) * 8;
+      previousMotionVelocityRef.current = { x: velocityX, y: velocityY };
+      motionSequenceRef.current += 1;
+      setFluidMotion({ sequence: motionSequenceRef.current, accelerationX, accelerationY, phase });
+    },
+    [],
+  );
+
+  const stopWindowInertia = useCallback(() => {
+    if (inertiaFrameRef.current !== null) cancelAnimationFrame(inertiaFrameRef.current);
+    inertiaFrameRef.current = null;
+  }, []);
+
+  const handleDragStart = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, [role='dialog']")) return;
+    event.preventDefault();
+    stopWindowInertia();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const drag = dragRef.current;
+    drag.pointerId = event.pointerId;
+    drag.ready = false;
+    drag.lastPointerX = event.screenX;
+    drag.lastPointerY = event.screenY;
+    drag.lastTime = performance.now();
+    drag.velocityX = 0;
+    drag.velocityY = 0;
+    previousMotionVelocityRef.current = { x: 0, y: 0 };
+    setIsWindowDragging(true);
+
+    void getWindowPosition()
+      .then((position) => {
+        if (drag.pointerId !== event.pointerId) return;
+        drag.positionX = position.x;
+        drag.positionY = position.y;
+        drag.ready = true;
+      })
+      .catch(() => {
+        drag.pointerId = -1;
+        setIsWindowDragging(false);
+        setControlMessage("窗口无法拖动 · CRV-307");
+      });
+  }, [getWindowPosition, stopWindowInertia]);
+
+  const handleDragMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (drag.pointerId !== event.pointerId || !drag.ready) return;
+    const now = performance.now();
+    const elapsed = Math.max(8, now - drag.lastTime);
+    const sampleX = (event.screenX - drag.lastPointerX) / elapsed;
+    const sampleY = (event.screenY - drag.lastPointerY) / elapsed;
+    drag.velocityX = drag.velocityX * 0.38 + sampleX * 0.62;
+    drag.velocityY = drag.velocityY * 0.38 + sampleY * 0.62;
+    drag.positionX += event.screenX - drag.lastPointerX;
+    drag.positionY += event.screenY - drag.lastPointerY;
+    drag.lastPointerX = event.screenX;
+    drag.lastPointerY = event.screenY;
+    drag.lastTime = now;
+    void setWindowPosition({ x: drag.positionX, y: drag.positionY });
+    publishFluidMotion(drag.velocityX, drag.velocityY, "dragging");
+  }, [publishFluidMotion, setWindowPosition]);
+
+  const handleDragEnd = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    drag.pointerId = -1;
+    drag.ready = false;
+    setIsWindowDragging(false);
+    const staleSample = performance.now() - drag.lastTime > 90;
+    let velocityX = staleSample || preferences.reducedMotion ? 0 : drag.velocityX;
+    let velocityY = staleSample || preferences.reducedMotion ? 0 : drag.velocityY;
+    publishFluidMotion(velocityX, velocityY, "released");
+    if (Math.hypot(velocityX, velocityY) < 0.035) return;
+
+    let positionX = drag.positionX;
+    let positionY = drag.positionY;
+    let lastFrame = performance.now();
+    const screenWithOffsets = window.screen as Screen & { availLeft?: number; availTop?: number };
+    const minimumX = screenWithOffsets.availLeft ?? 0;
+    const minimumY = screenWithOffsets.availTop ?? 0;
+    const maximumX = minimumX + window.screen.availWidth - window.outerWidth;
+    const maximumY = minimumY + window.screen.availHeight - window.outerHeight;
+
+    const glide = (time: number) => {
+      const elapsed = Math.min(32, Math.max(8, time - lastFrame));
+      lastFrame = time;
+      const friction = Math.exp(-elapsed / 145);
+      velocityX *= friction;
+      velocityY *= friction;
+      positionX += velocityX * elapsed;
+      positionY += velocityY * elapsed;
+      const nextX = Math.max(minimumX, Math.min(maximumX, positionX));
+      const nextY = Math.max(minimumY, Math.min(maximumY, positionY));
+      if (nextX !== positionX) velocityX = 0;
+      if (nextY !== positionY) velocityY = 0;
+      positionX = nextX;
+      positionY = nextY;
+      void setWindowPosition({ x: positionX, y: positionY });
+      publishFluidMotion(velocityX, velocityY, "dragging");
+      if (Math.hypot(velocityX, velocityY) < 0.018) {
+        inertiaFrameRef.current = null;
+        publishFluidMotion(0, 0, "idle");
+        return;
+      }
+      inertiaFrameRef.current = requestAnimationFrame(glide);
+    };
+    inertiaFrameRef.current = requestAnimationFrame(glide);
+  }, [preferences.reducedMotion, publishFluidMotion, setWindowPosition]);
+
   const updatePreferences = useCallback(
     (next: DisplayPreferences) => {
       setPreferences(next);
@@ -299,13 +466,17 @@ export function App({
 
   return (
     <main
-      className={`app-frame app-frame--${layoutMode} ${preferences.reducedMotion ? "reduce-motion" : ""}`}
+      className={`app-frame app-frame--${layoutMode} ${preferences.reducedMotion ? "reduce-motion" : ""} ${isWindowDragging ? "is-dragging" : ""}`}
       style={{ "--surface-opacity": preferences.opacity } as React.CSSProperties}
       onContextMenu={(event) => {
         event.preventDefault();
         if (collapsed) changeLayout("compact");
         setSettingsOpen((value) => !value);
       }}
+      onPointerDown={handleDragStart}
+      onPointerMove={handleDragMove}
+      onPointerUp={handleDragEnd}
+      onPointerCancel={handleDragEnd}
     >
       <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""}`}>
         <span className="rim-glint" aria-hidden="true" />
@@ -322,8 +493,8 @@ export function App({
             {snapshot && (
               <div className="quota-grid">
                 <span className="refractive-seam" aria-hidden="true" />
-                <QuotaCell label="5 HOUR" window={snapshot.fiveHour} accent="cyan" />
-                <QuotaCell label="WEEK" window={snapshot.weekly} accent="mint" />
+                <QuotaCell label="5 HOUR" window={snapshot.fiveHour} accent="cyan" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
+                <QuotaCell label="WEEK" window={snapshot.weekly} accent="mint" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
               </div>
             )}
 
@@ -376,7 +547,7 @@ export function App({
           <aside className="settings-popover" role="dialog" aria-modal="false" aria-labelledby="settings-title">
             <div className="settings-heading">
               <strong id="settings-title">显示设置</strong>
-              <button type="button" aria-label="关闭设置" onClick={() => setSettingsOpen(false)}>×</button>
+              <button type="button" aria-label="关闭设置" onClick={() => setSettingsOpen(false)}><Icon name="close" /></button>
             </div>
             <label>
               <span>透明度 {Math.round(preferences.opacity * 100)}%</span>

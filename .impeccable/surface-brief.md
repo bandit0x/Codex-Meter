@@ -1,6 +1,6 @@
 # Approved Surface Brief
 
-**Status:** V1 and V2 implementations rejected; V3 material rejected; V4 Volumetric Fluid Lens awaiting user approval; product implementation frozen
+**Status:** V1 and V2 implementations rejected; V3 material rejected; V4 Volumetric Fluid Lens approved on 2026-08-11; implementation authorized
 
 **Surface:** manually launched Windows 11 x64 always-on-top Codex capacity overlay.
 
@@ -12,6 +12,6 @@
 
 **Interaction contract:** manual launch only; drag; always-on-top; expand/collapse; right-click settings; reversible mouse click-through; manual refresh; remembered non-secret display preferences.
 
-**Composition evidence:** `.impeccable/mocks/composition/split-lens-bar.png` and `.impeccable/mocks/states/twin-cells-state-board.png`. Current material candidates are `.impeccable/mocks/rework-v4/v4-volumetric-material.png` and `.impeccable/mocks/rework-v4/v4-fluid-inertia-storyboard-v2.png`; they are not approved yet.
+**Composition evidence:** `.impeccable/mocks/composition/split-lens-bar.png` and `.impeccable/mocks/states/twin-cells-state-board.png`. Approved V4 material and motion references are `.impeccable/mocks/rework-v4/v4-volumetric-material.png` and `.impeccable/mocks/rework-v4/v4-fluid-inertia-storyboard-v2.png`.
 
 **Guardrails:** read-only Codex integration; no credential interception; no startup registration; no reset redemption; no gaming HUD, purple gradient, nested card grid, or opaque attention-stealing panel.

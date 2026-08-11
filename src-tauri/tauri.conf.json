@@ -25,10 +25,7 @@
         "decorations": false,
         "alwaysOnTop": true,
         "resizable": false,
-        "shadow": true,
-        "windowEffects": {
-          "effects": ["acrylic"]
-        }
+        "shadow": false
       }
     ],
     "security": {
