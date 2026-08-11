@@ -20,7 +20,7 @@ pub struct DisplayPreferences {
 impl Default for DisplayPreferences {
     fn default() -> Self {
         Self {
-            opacity: 0.76,
+            opacity: 0.92,
             reduced_motion: false,
             x: None,
             y: None,
@@ -77,10 +77,10 @@ impl PreferencesStore {
 }
 
 fn validate(preferences: &DisplayPreferences) -> Result<(), Diagnostic> {
-    if !(0.7..=1.0).contains(&preferences.opacity) {
+    if !(0.86..=1.0).contains(&preferences.opacity) {
         return Err(Diagnostic::new(
             "CRV-301",
-            "显示透明度必须在 70% 到 100% 之间",
+            "显示透明度必须在 86% 到 100% 之间",
         ));
     }
     Ok(())
@@ -88,7 +88,9 @@ fn validate(preferences: &DisplayPreferences) -> Result<(), Diagnostic> {
 
 fn read_from_disk(path: &Path) -> Option<DisplayPreferences> {
     let bytes = fs::read(path).ok()?;
-    serde_json::from_slice(&bytes).ok()
+    let mut preferences: DisplayPreferences = serde_json::from_slice(&bytes).ok()?;
+    preferences.opacity = preferences.opacity.clamp(0.86, 1.0);
+    Some(preferences)
 }
 
 fn write_to_disk(path: &Path, preferences: &DisplayPreferences) -> Result<(), Diagnostic> {
@@ -126,7 +128,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("crv-preferences-{unique}.json"));
         let store = PreferencesStore::from_path(path.clone());
         let expected = DisplayPreferences {
-            opacity: 0.84,
+            opacity: 0.9,
             reduced_motion: true,
             x: Some(120),
             y: Some(240),
@@ -141,8 +143,8 @@ mod tests {
     }
 
     #[test]
-    fn default_preferences_match_the_v2_liquid_glass_contract() {
-        assert_eq!(DisplayPreferences::default().opacity, 0.76);
+    fn default_preferences_match_the_volumetric_lens_contract() {
+        assert_eq!(DisplayPreferences::default().opacity, 0.92);
         assert!(!DisplayPreferences::default().reduced_motion);
     }
 }

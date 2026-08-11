@@ -19,20 +19,20 @@ interface Palette {
 
 const palettes: Record<FluidReservoirProps["accent"], Palette> = {
   cyan: {
-    top: "rgba(77, 220, 255, .93)",
-    middle: "rgba(3, 139, 194, .86)",
-    bottom: "rgba(0, 35, 67, .98)",
+    top: "rgba(116, 236, 255, .98)",
+    middle: "rgba(8, 156, 208, .94)",
+    bottom: "rgba(0, 52, 87, .99)",
     deep: "rgba(0, 18, 42, .99)",
     edge: "rgba(218, 251, 255, .96)",
-    caustic: "rgba(112, 229, 255, .14)",
+    caustic: "rgba(138, 239, 255, .22)",
   },
   mint: {
-    top: "rgba(111, 242, 215, .94)",
-    middle: "rgba(8, 151, 126, .88)",
-    bottom: "rgba(0, 49, 51, .98)",
+    top: "rgba(148, 255, 231, .98)",
+    middle: "rgba(12, 177, 147, .94)",
+    bottom: "rgba(0, 72, 68, .99)",
     deep: "rgba(0, 29, 34, .99)",
     edge: "rgba(226, 255, 247, .96)",
-    caustic: "rgba(132, 255, 224, .14)",
+    caustic: "rgba(156, 255, 231, .22)",
   },
 };
 
@@ -84,22 +84,22 @@ function drawReservoir(
   active: boolean,
 ) {
   context.clearRect(0, 0, width, height);
-  const insetX = 9;
-  const insetTop = 7;
-  const insetBottom = 8;
+  const insetX = 5;
+  const insetTop = 5;
+  const insetBottom = 5;
   const innerWidth = width - insetX * 2;
   const innerHeight = height - insetTop - insetBottom;
   const baseY = linearLiquidLevel(percent, insetTop, innerHeight);
   const liquidDepth = insetTop + innerHeight - baseY;
 
   context.save();
-  roundedRect(context, insetX, insetTop, innerWidth, innerHeight, 24);
+  roundedRect(context, insetX, insetTop, innerWidth, innerHeight, 22);
   context.clip();
 
-  const chamberLight = context.createRadialGradient(width * 0.5, -4, 4, width * 0.5, 0, width * 0.75);
-  chamberLight.addColorStop(0, "rgba(187, 237, 255, .13)");
-  chamberLight.addColorStop(0.54, "rgba(26, 76, 102, .045)");
-  chamberLight.addColorStop(1, "rgba(0, 4, 10, .12)");
+  const chamberLight = context.createRadialGradient(width * 0.5, -4, 4, width * 0.5, 0, width * 0.78);
+  chamberLight.addColorStop(0, "rgba(205, 245, 255, .2)");
+  chamberLight.addColorStop(0.48, "rgba(36, 94, 120, .07)");
+  chamberLight.addColorStop(1, "rgba(0, 4, 10, .22)");
   context.fillStyle = chamberLight;
   context.fillRect(insetX, insetTop, innerWidth, innerHeight);
 
@@ -111,8 +111,9 @@ function drawReservoir(
 
   const body = context.createLinearGradient(0, baseY, 0, insetTop + innerHeight);
   body.addColorStop(0, palette.top);
-  body.addColorStop(0.16, palette.middle);
-  body.addColorStop(0.76, palette.bottom);
+  body.addColorStop(0.08, palette.top);
+  body.addColorStop(0.3, palette.middle);
+  body.addColorStop(0.82, palette.bottom);
   body.addColorStop(1, palette.deep);
   context.fillStyle = body;
   context.fill();
@@ -142,38 +143,45 @@ function drawReservoir(
   context.fillStyle = lateralRefraction;
   context.fillRect(insetX, baseY, innerWidth, insetTop + innerHeight - baseY);
 
-  const causticHeight = Math.min(68, liquidDepth * 0.52);
+  const causticHeight = Math.min(82, liquidDepth * 0.58);
   const causticStart = insetTop + innerHeight - causticHeight;
-  context.lineWidth = 0.75;
+  context.lineWidth = 0.9;
   context.strokeStyle = palette.caustic;
   context.shadowColor = palette.caustic;
-  context.shadowBlur = 5;
-  for (let strand = 0; strand < 11; strand += 1) {
-    const seed = strand * 0.79;
-    const drift = active ? Math.sin(time * 0.0011 + seed) * 5 : Math.sin(seed) * 3;
-    const startX = insetX + ((strand + 0.25) / 11) * innerWidth + drift;
+  context.shadowBlur = 7;
+  for (let strand = 0; strand < 13; strand += 1) {
+    const seed = strand * 1.173;
+    const drift = active ? Math.sin(time * 0.00074 + seed) * 7 : Math.sin(seed) * 3;
+    const startX = insetX + ((strand + 0.35) / 13) * innerWidth + drift;
     context.beginPath();
-    context.moveTo(startX - 10, insetTop + innerHeight + 3);
+    context.moveTo(startX - 12, insetTop + innerHeight + 4);
     context.bezierCurveTo(
-      startX + Math.sin(seed * 2.4) * 18,
-      causticStart + causticHeight * 0.76,
-      startX - 20 + Math.cos(seed * 3.2) * 12,
-      causticStart + causticHeight * 0.35,
-      startX + Math.sin(seed * 4) * 12,
-      causticStart + 3,
+      startX + Math.sin(seed * 1.7) * 24,
+      causticStart + causticHeight * 0.82,
+      startX - 26 + Math.cos(seed * 2.3) * 18,
+      causticStart + causticHeight * 0.42,
+      startX + Math.sin(seed * 3.1) * 18,
+      causticStart + 1,
     );
     context.stroke();
   }
-  context.shadowBlur = 3;
-  for (let row = 0; row < 4; row += 1) {
-    const y = causticStart + ((row + 0.65) / 4) * causticHeight;
+  context.shadowBlur = 4;
+  for (let arc = 0; arc < 9; arc += 1) {
+    const seed = arc * 1.913;
+    const centerX = insetX + ((arc + 0.45) / 9) * innerWidth;
+    const centerY = causticStart + (0.3 + ((arc * 0.37) % 0.58)) * causticHeight;
+    const radiusX = 18 + (arc % 4) * 7;
+    const radiusY = 7 + (arc % 3) * 4;
     context.beginPath();
-    context.moveTo(insetX - 4, y);
-    for (let column = 1; column <= 12; column += 1) {
-      const x = insetX + (column / 12) * innerWidth;
-      const wobble = Math.sin(column * 1.73 + row * 2.1 + (active ? time * 0.0009 : 0)) * 4;
-      context.lineTo(x, y + wobble);
-    }
+    context.ellipse(
+      centerX + (active ? Math.sin(time * 0.0006 + seed) * 4 : 0),
+      centerY,
+      radiusX,
+      radiusY,
+      -0.28 + Math.sin(seed) * 0.34,
+      Math.PI * 0.12,
+      Math.PI * 1.62,
+    );
     context.stroke();
   }
   context.restore();
@@ -211,14 +219,18 @@ function drawReservoir(
   context.beginPath();
   traceSurface(context, surface.heights, insetX, innerWidth, baseY);
   context.strokeStyle = palette.edge;
-  context.lineWidth = 1.35;
+  context.lineWidth = 2.1;
   context.shadowColor = palette.edge;
-  context.shadowBlur = 8;
+  context.shadowBlur = 10;
   context.stroke();
-  context.translate(0, 3.5);
-  context.strokeStyle = "rgba(0, 22, 31, .64)";
-  context.lineWidth = 3.5;
+  context.translate(0, 4.5);
+  context.strokeStyle = "rgba(0, 15, 26, .78)";
+  context.lineWidth = 5;
   context.shadowBlur = 0;
+  context.stroke();
+  context.translate(0, -7);
+  context.strokeStyle = "rgba(241, 255, 255, .28)";
+  context.lineWidth = 1;
   context.stroke();
   context.restore();
 

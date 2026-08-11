@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
@@ -111,6 +111,31 @@ describe("Codex capacity overlay", () => {
 
     await user.click(screen.getByRole("button", { name: "恢复标准视图" }));
     expect(layouts[layouts.length - 1]).toBe("compact");
+  });
+
+  it("moves the native window while the reservoir surface is dragged", async () => {
+    const positions: Array<{ x: number; y: number }> = [];
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => healthySnapshot}
+        getWindowPosition={async () => ({ x: 100, y: 200 })}
+        setWindowPosition={async (position) => {
+          positions.push(position);
+        }}
+      />,
+    );
+
+    await screen.findByText("76%", { exact: false });
+    const surface = container.querySelector(".app-frame") as HTMLElement;
+    surface.setPointerCapture = () => undefined;
+    surface.hasPointerCapture = () => false;
+
+    fireEvent.pointerDown(surface, { button: 0, pointerId: 7, screenX: 20, screenY: 30 });
+    await waitFor(() => expect(surface).toHaveClass("is-dragging"));
+    fireEvent.pointerMove(surface, { pointerId: 7, screenX: 48, screenY: 44 });
+
+    await waitFor(() => expect(positions[positions.length - 1]).toEqual({ x: 128, y: 214 }));
   });
 
   it("keeps the last successful snapshot visibly stale after a refresh failure", async () => {

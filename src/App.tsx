@@ -40,7 +40,7 @@ type ViewState =
   | { kind: "failed"; diagnostic: Diagnostic };
 
 const defaultPreferences: DisplayPreferences = {
-  opacity: 0.76,
+  opacity: 0.92,
   reducedMotion: false,
   x: null,
   y: null,
@@ -480,7 +480,7 @@ export function App({
     >
       <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""}`}>
         <span className="rim-glint" aria-hidden="true" />
-        <div className="drag-rail" data-tauri-drag-region aria-hidden="true" />
+        <div className="drag-rail" aria-hidden="true" />
 
         {collapsed && snapshot ? (
           <CollapsedSurface snapshot={snapshot} onRestore={() => changeLayout("compact")} />
@@ -554,7 +554,7 @@ export function App({
               <input
                 aria-label="透明度"
                 type="range"
-                min="0.7"
+                min="0.86"
                 max="1"
                 step="0.02"
                 value={preferences.opacity}

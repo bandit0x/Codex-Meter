@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — 连接真实 Codex app-server；03 — 重置详情与故障恢复；04 — Windows 浮窗交互与偏好
 
-**Status:** Blocked
+**Status:** Acceptance pending
 
 **V2 update (2026-08-11):** the user-approved liquid-glass V2 was implemented
 and verified in real Tauri windows. Compact, expanded, settings/Escape,
@@ -30,10 +30,10 @@ thick optical walls, depth absorption, particles and caustics. System shadow
 and the rectangular Acrylic plate are disabled. Automated frontend, physics,
 Rust, production-build and portable-package checks pass.
 
-**Current blocker:** the controlled automation desktop starts the Tauri/WebView2
-process but cannot enumerate or capture its window. The 600x260 browser render
-is diagnostic only; real-window drag, shell inertia and post-stop liquid motion
-still require capture in a visible interactive session.
+**Current acceptance boundary:** the recovery run can now enumerate, move and
+capture the real packaged Tauri window. Compact drag, shell glide and liquid
+settling evidence is current; the owner still needs to accept the refreshed
+compact visual before expanded, failure and collapsed recovery captures proceed.
 
 **WebView2 portability regression and fix (2026-08-11):** the first unpacked
 portable directory still depended on a machine-wide WebView2 installation and
@@ -42,7 +42,23 @@ WebView2 Fixed Runtime 151.0.4129.78 beside the executable, verifies its
 Microsoft Authenticode signature while packaging, and refuses incomplete
 runtimes. A release smoke test observed seven `msedgewebview2` processes, all
 loaded from the package-local `webview2-runtime` directory. This startup
-boundary is Verified; visual and motion acceptance remains blocked separately.
+boundary is Verified; the refreshed visual direction remains Acceptance pending.
+
+**V4 stop-loss recovery (2026-08-11):** the owner rejected the packaged visual
+fidelity and reported that the window could not move. The first failing boundary
+was the Tauri capability contract: frontend drag code called `set_position`, but
+the main window had no `core:window:allow-set-position` permission, and the
+rejected Promise was discarded. A red configuration test captured the defect;
+the permission fix and a Pointer Move-to-window-position regression test now
+pass. The material stack was rebuilt against the approved 600x260 composition:
+28px exterior breathing room, inset thick optical walls, opaque absorption
+chambers, a stronger meniscus, and organic rather than grid-like caustics.
+
+The packaged executable then passed a real Win32 drag run. A 110x50 pointer path
+produced a final 182x83 window displacement, including 47x22 of post-release
+glide. Three real-window captures recorded continued liquid change through
+220ms and decay toward rest by 900ms. Status is Acceptance pending, not Verified,
+until the owner accepts the refreshed real Tauri frame.
 
 - [x] 当前来源版本可生成明确可定位的便携产物，并通过发布目录启动烟雾测试。
 - [x] 目标机器真实 Codex 冒烟检查对照五小时、一周、重置和新鲜度字段，且不消费 Full Reset Credit。
