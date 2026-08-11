@@ -221,11 +221,12 @@ class OpticalShellRenderer {
   }
 
   render(timeMs: number, dragging: boolean, opacity: number) {
-    const bounds = this.canvas.getBoundingClientRect();
-    if (bounds.width <= 0 || bounds.height <= 0) return;
+    const logicalWidth = this.canvas.clientWidth;
+    const logicalHeight = this.canvas.clientHeight;
+    if (logicalWidth <= 0 || logicalHeight <= 0) return;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    const width = Math.max(1, Math.round(bounds.width * ratio));
-    const height = Math.max(1, Math.round(bounds.height * ratio));
+    const width = Math.max(1, Math.round(logicalWidth * ratio));
+    const height = Math.max(1, Math.round(logicalHeight * ratio));
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width;
       this.canvas.height = height;

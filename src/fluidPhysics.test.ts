@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FluidSurface, linearLiquidLevel } from "./fluidPhysics";
+import { FluidBodyMomentum, FluidSurface, linearLiquidLevel } from "./fluidPhysics";
 
 describe("volumetric fluid surface", () => {
   it("maps remaining percentage linearly to the physical liquid level", () => {
@@ -26,5 +26,20 @@ describe("volumetric fluid surface", () => {
 
     expect(Array.from(fiveHour.heights).some((value) => Math.abs(value) > 0.01)).toBe(true);
     expect(Array.from(weekly.heights).every((value) => value === 0)).toBe(true);
+  });
+
+  it("carries drag momentum into the liquid body and decays after release", () => {
+    const body = new FluidBodyMomentum();
+    body.disturb(2.1, -0.8, true);
+    body.step();
+
+    const firstOffset = body.offset;
+    const firstAgitation = body.agitation;
+    for (let frame = 0; frame < 180; frame += 1) body.step();
+
+    expect(firstOffset[0]).toBeGreaterThan(0);
+    expect(firstOffset[1]).toBeLessThan(0);
+    expect(body.offset[0]).toBeGreaterThan(firstOffset[0]);
+    expect(body.agitation).toBeLessThan(firstAgitation);
   });
 });

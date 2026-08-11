@@ -2,14 +2,14 @@ import { getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/
 
 export type OverlayLayout = "collapsed" | "compact" | "expanded";
 
-const layoutSizes: Record<OverlayLayout, { width: number; height: number }> = {
-  collapsed: { width: 520, height: 96 },
-  compact: { width: 600, height: 260 },
-  expanded: { width: 600, height: 320 },
+export const overlayLayoutSizes: Record<OverlayLayout, { width: number; height: number }> = {
+  collapsed: { width: 260, height: 48 },
+  compact: { width: 300, height: 130 },
+  expanded: { width: 300, height: 160 },
 };
 
 export async function setOverlayWindowLayout(layout: OverlayLayout): Promise<void> {
-  const { width, height } = layoutSizes[layout];
+  const { width, height } = overlayLayoutSizes[layout];
   await getCurrentWindow().setSize(new LogicalSize(width, height));
 }
 

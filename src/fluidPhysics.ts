@@ -103,6 +103,48 @@ export class FluidSurface {
   }
 }
 
+/**
+ * Low-frequency momentum carried by the liquid body beneath the free surface.
+ * The offset is integrated from drag impulses and then coasts to rest, giving
+ * the optical density field the same inertia as the visible surface slosh.
+ */
+export class FluidBodyMomentum {
+  private momentumX = 0;
+  private momentumY = 0;
+  private displacementX = 0;
+  private displacementY = 0;
+
+  disturb(accelerationX: number, accelerationY: number, release = false): void {
+    const impulse = release ? 0.18 : 0.085;
+    this.momentumX = clamp(this.momentumX + clamp(accelerationX, -2.4, 2.4) * impulse, -2.8, 2.8);
+    this.momentumY = clamp(this.momentumY + clamp(accelerationY, -2, 2) * impulse, -2.2, 2.2);
+  }
+
+  step(frameScale = 1): boolean {
+    const scale = clamp(frameScale, 0.35, 2);
+    this.displacementX += this.momentumX * scale * 0.032;
+    this.displacementY += this.momentumY * scale * 0.025;
+    this.momentumX *= Math.pow(0.966, scale);
+    this.momentumY *= Math.pow(0.961, scale);
+    return this.agitation > 0.008;
+  }
+
+  get offset(): readonly [number, number] {
+    return [this.displacementX, this.displacementY];
+  }
+
+  get agitation(): number {
+    return clamp(Math.hypot(this.momentumX, this.momentumY) / 2.2, 0, 1);
+  }
+
+  reset(): void {
+    this.momentumX = 0;
+    this.momentumY = 0;
+    this.displacementX = 0;
+    this.displacementY = 0;
+  }
+}
+
 export function linearLiquidLevel(
   remainingPercent: number,
   top: number,

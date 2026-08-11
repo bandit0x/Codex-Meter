@@ -34,3 +34,15 @@ as a standalone component.
 
 - Source: <https://github.com/DavidHDev/canvas-ui>
 - License: <https://github.com/DavidHDev/canvas-ui/blob/main/LICENSE.md>
+
+## WebGL Fluid Simulation
+
+The reservoir volume shader adapts the fluid-motion concepts of backward
+advection, curl/vorticity and density-gradient lighting from Pavel Dobryakov's
+WebGL Fluid Simulation. The implementation in this project is a bounded,
+procedural single-pass field designed for the two quota reservoirs rather than
+a copy of the reference project's framebuffer solver.
+Copyright (c) 2017 Pavel Dobryakov. Licensed under the MIT License.
+
+- Source: <https://github.com/PavelDoGreat/WebGL-Fluid-Simulation>
+- License: <https://github.com/PavelDoGreat/WebGL-Fluid-Simulation/blob/master/LICENSE>

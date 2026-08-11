@@ -3,6 +3,8 @@ export const OPTICAL_SURFACE_NODE_COUNT = 56;
 export interface OpticalFluidFrame {
   remainingPercent: number;
   surface: Float32Array;
+  flowOffset: readonly [number, number];
+  agitation: number;
   timeMs: number;
   active: boolean;
 }
@@ -52,6 +54,8 @@ uniform float uPixelRatio;
 uniform float uRemaining;
 uniform float uTime;
 uniform float uActive;
+uniform vec2 uFlowOffset;
+uniform float uAgitation;
 uniform float uSurface[${OPTICAL_SURFACE_NODE_COUNT}];
 uniform vec3 uTop;
 uniform vec3 uMiddle;
@@ -59,7 +63,6 @@ uniform vec3 uDeep;
 uniform vec3 uAbsorption;
 uniform vec3 uAccent;
 
-const float PI = 3.141592653589793;
 const float NODE_LAST = ${OPTICAL_SURFACE_NODE_COUNT - 1}.0;
 
 float saturate(float value) {
@@ -68,14 +71,6 @@ float saturate(float value) {
 
 float hash11(float value) {
   return fract(sin(value * 127.1) * 43758.5453123);
-}
-
-vec2 hash22(vec2 point) {
-  vec2 seeded = vec2(
-    dot(point, vec2(127.1, 311.7)),
-    dot(point, vec2(269.5, 183.3))
-  );
-  return fract(sin(seeded) * 43758.5453123);
 }
 
 float valueNoise(vec2 point) {
@@ -101,6 +96,15 @@ float fluidFbm(vec2 point) {
   return value;
 }
 
+vec2 curlField(vec2 point) {
+  const float stepSize = 0.075;
+  float left = fluidFbm(point - vec2(stepSize, 0.0));
+  float right = fluidFbm(point + vec2(stepSize, 0.0));
+  float top = fluidFbm(point + vec2(0.0, stepSize));
+  float bottom = fluidFbm(point - vec2(0.0, stepSize));
+  return vec2(top - bottom, left - right) / (2.0 * stepSize);
+}
+
 float roundedRectSdf(vec2 point, vec2 halfSize, float radius) {
   vec2 q = abs(point) - halfSize + radius;
   return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
@@ -124,30 +128,6 @@ float freeSurfaceOffset(float normalizedX) {
     + sin(x * 13.0 - uTime * 0.41) * 0.38
   ) * mix(1.85, 0.34, uActive);
   return sampleSurface(x) + wallRise + ambientRipple;
-}
-
-float causticEdge(vec2 point) {
-  vec2 cell = floor(point);
-  vec2 local = fract(point);
-  float nearest = 10.0;
-  float second = 10.0;
-
-  for (int y = -1; y <= 1; y += 1) {
-    for (int x = -1; x <= 1; x += 1) {
-      vec2 offset = vec2(float(x), float(y));
-      vec2 feature = offset + hash22(cell + offset) - local;
-      float distanceSquared = dot(feature, feature);
-      if (distanceSquared < nearest) {
-        second = nearest;
-        nearest = distanceSquared;
-      } else if (distanceSquared < second) {
-        second = distanceSquared;
-      }
-    }
-  }
-
-  float ridge = sqrt(second) - sqrt(nearest);
-  return 1.0 - smoothstep(0.025, 0.12, ridge);
 }
 
 vec3 chamberColor(vec2 uv) {
@@ -236,65 +216,46 @@ void main() {
     vec3 body = transmittedLight + scatteredLight;
     body *= mix(vec3(0.58), vec3(1.08), horizontalVolume);
 
-    float flowTime = uTime * mix(0.16, 0.48, uActive);
-    vec2 causticUv = vec2(
-      normalizedX * 10.2 + surfaceNormal.x * 2.6,
-      depth * 7.2 + flowTime
-    );
-    causticUv += vec2(
-      sin(causticUv.y * 0.72 + flowTime * 0.8),
-      sin(causticUv.x * 0.54 - flowTime * 0.64)
-    ) * 0.34;
-    float caustic = causticEdge(causticUv);
-    float secondaryCaustic = causticEdge(causticUv * 0.67 + vec2(3.1, -flowTime * 0.38));
-    float floorFocus = mix(0.24, 1.0, pow(smoothstep(0.28, 1.0, depth), 1.45));
-    float lowLevelCaustic = mix(2.35, 1.0, smoothstep(18.0, 62.0, uRemaining));
-    body += uAccent * (caustic * 0.68 + secondaryCaustic * 0.32)
-      * floorFocus * 0.16 * lowLevelCaustic;
+    float flowTime = uTime * mix(0.16, 0.42, uActive);
+    vec2 flowDomain = vec2(normalizedX * 4.8, depth * 4.1);
+    vec2 transportedFlow = uFlowOffset * vec2(1.2, -0.9);
+    vec2 velocityDomain = flowDomain * 0.74
+      + vec2(flowTime * 0.13, -flowTime * 0.07)
+      - transportedFlow * 0.42;
+    vec2 curlVelocity = clamp(curlField(velocityDomain), vec2(-1.5), vec2(1.5));
+    float vorticity = saturate(length(curlVelocity) / 1.45);
+    vec2 advectedDomain = flowDomain
+      - curlVelocity * mix(0.38, 0.68, max(uActive, uAgitation))
+      - transportedFlow
+      + vec2(-flowTime * 0.1, flowTime * 0.03);
 
-    float filamentA = 1.0 - smoothstep(
-      0.018,
-      0.11,
-      abs(sin(causticUv.x * 1.36 + sin(causticUv.y * 0.82 + flowTime) * 1.7))
-    );
-    float filamentB = 1.0 - smoothstep(
-      0.025,
-      0.13,
-      abs(sin(causticUv.y * 1.18 - sin(causticUv.x * 0.63 - flowTime * 0.7) * 1.45))
-    );
-    body += uAccent * max(filamentA, filamentB) * floorFocus * 0.072;
+    float density = fluidFbm(advectedDomain);
+    float densityStep = 0.055;
+    float densityX = fluidFbm(advectedDomain + vec2(densityStep, 0.0));
+    float densityY = fluidFbm(advectedDomain + vec2(0.0, densityStep));
+    vec2 densityGradient = vec2(densityX - density, densityY - density) / densityStep;
+    vec3 densityNormal = normalize(vec3(-densityGradient * 0.72, 0.34));
+    vec3 volumeLight = normalize(vec3(-0.58, -0.7, 0.62));
+    float volumeShading = saturate(dot(densityNormal, volumeLight) * 0.5 + 0.72);
+    float textureWeight = mix(0.18, 0.72, smoothstep(0.08, 0.94, depth));
+    body *= mix(0.94, 1.065, volumeShading) * (1.0 + (density - 0.5) * 0.11 * textureWeight);
+    body += uAccent * (density - 0.48) * 0.055 * textureWeight;
+    body += uAccent * vorticity * 0.018 * textureWeight;
 
+    float bottomFocus = pow(smoothstep(0.62, 1.0, depth), 2.2);
+    float causticDensity = fluidFbm(
+      advectedDomain * 1.42 + curlVelocity * 0.38 + vec2(flowTime * 0.09, -flowTime * 0.06)
+    );
+    float softCaustic = smoothstep(0.59, 0.82, causticDensity);
+    float shallowBoost = mix(1.7, 1.0, smoothstep(18.0, 62.0, uRemaining));
+    body += uAccent * softCaustic * bottomFocus * 0.12 * shallowBoost;
+
+    float surfaceHaze = exp(-depth / 0.2) * mix(0.72, 1.0, density);
+    body += mix(uAccent, vec3(0.92, 1.0, 1.0), 0.5) * surfaceHaze * 0.055;
     float volumeGlow = exp(-pow((normalizedX - 0.52) * 2.1, 2.0))
-      * exp(-pow((depth - 0.28) * 2.2, 2.0));
-    body += uAccent * volumeGlow * 0.1;
-    body += uAccent * mix(0.13, 0.045, depth) * horizontalVolume;
-
-    float lightSheet = exp(-pow(
-      sin(normalizedX * 8.4 - depth * 3.8 + flowTime * 0.52),
-      2.0
-    ) / 0.12) * exp(-pow((depth - 0.58) / 0.58, 2.0));
-    body += mix(uAccent, vec3(0.92, 1.0, 1.0), 0.55)
-      * lightSheet * 0.048 * horizontalVolume;
-
-    vec2 flowDomain = vec2(normalizedX * 5.8, depth * 6.4);
-    float flowSpeed = mix(0.24, 0.72, uActive);
-    vec2 domainWarp = vec2(
-      fluidFbm(flowDomain + vec2(uTime * flowSpeed, -uTime * 0.11)),
-      fluidFbm(flowDomain + vec2(8.7, 3.4) + vec2(-uTime * 0.16, uTime * flowSpeed))
-    );
-    float density = fluidFbm(flowDomain + (domainWarp - 0.5) * 2.35 + vec2(0.0, uTime * 0.13));
-    float ribbon = smoothstep(0.56, 0.78, density)
-      * (1.0 - smoothstep(0.8, 0.94, density));
-    float textureWeight = mix(0.28, 1.0, smoothstep(0.18, 0.92, depth));
-    body *= 1.0 + (density - 0.5) * 0.16 * textureWeight;
-    body += uAccent * ribbon * mix(0.018, 0.062, depth) * textureWeight;
-
-    float noiseStep = 0.035;
-    float densityX = fluidFbm(flowDomain + vec2(noiseStep, 0.0) + (domainWarp - 0.5) * 2.35);
-    float densityY = fluidFbm(flowDomain + vec2(0.0, noiseStep) + (domainWarp - 0.5) * 2.35);
-    vec2 densityNormal = vec2(densityX - density, densityY - density);
-    float refractedHighlight = pow(saturate(0.5 + dot(normalize(densityNormal + vec2(0.001)), vec2(-0.66, -0.75)) * 0.5), 7.0);
-    body += vec3(0.72, 0.98, 1.0) * refractedHighlight * 0.035 * textureWeight;
+      * exp(-pow((depth - 0.3) * 2.0, 2.0));
+    body += uAccent * volumeGlow * 0.08;
+    body += uAccent * mix(0.11, 0.035, depth) * horizontalVolume;
 
     float lowLevelBoost = 1.0 + (1.0 - smoothstep(8.0, 55.0, uRemaining)) * 0.22;
     body *= lowLevelBoost;
@@ -435,6 +396,8 @@ export class OpticalFluidRenderer {
       remaining: requireUniform(gl, program, "uRemaining"),
       time: requireUniform(gl, program, "uTime"),
       active: requireUniform(gl, program, "uActive"),
+      flowOffset: requireUniform(gl, program, "uFlowOffset"),
+      agitation: requireUniform(gl, program, "uAgitation"),
       surface: requireUniform(gl, program, "uSurface[0]"),
       top: requireUniform(gl, program, "uTop"),
       middle: requireUniform(gl, program, "uMiddle"),
@@ -445,11 +408,12 @@ export class OpticalFluidRenderer {
   }
 
   render(frame: OpticalFluidFrame): void {
-    const bounds = this.canvas.getBoundingClientRect();
-    if (bounds.width <= 0 || bounds.height <= 0) return;
+    const logicalWidth = this.canvas.clientWidth;
+    const logicalHeight = this.canvas.clientHeight;
+    if (logicalWidth <= 0 || logicalHeight <= 0) return;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    const width = Math.max(1, Math.round(bounds.width * ratio));
-    const height = Math.max(1, Math.round(bounds.height * ratio));
+    const width = Math.max(1, Math.round(logicalWidth * ratio));
+    const height = Math.max(1, Math.round(logicalHeight * ratio));
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width;
       this.canvas.height = height;
@@ -465,6 +429,8 @@ export class OpticalFluidRenderer {
     gl.uniform1f(uniforms.remaining, frame.remainingPercent);
     gl.uniform1f(uniforms.time, frame.timeMs / 1_000);
     gl.uniform1f(uniforms.active, frame.active ? 1 : 0);
+    gl.uniform2f(uniforms.flowOffset, frame.flowOffset[0], frame.flowOffset[1]);
+    gl.uniform1f(uniforms.agitation, frame.agitation);
     gl.uniform1fv(uniforms.surface, frame.surface);
     gl.uniform3fv(uniforms.top, palette.top);
     gl.uniform3fv(uniforms.middle, palette.middle);

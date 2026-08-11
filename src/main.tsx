@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import type { CapacitySnapshot } from "./capacityTypes";
-import type { OverlayLayout } from "./windowClient";
+import { overlayLayoutSizes, type OverlayLayout } from "./windowClient";
 
 const visualFixture: CapacitySnapshot = {
   sourceState: "healthy",
@@ -73,7 +73,11 @@ const fixtureProps: React.ComponentProps<typeof App> = fixtureEnabled
   : {};
 
 const rootElement = document.getElementById("root") as HTMLElement;
-if (fixtureName === "v7-collapsed") rootElement.style.height = "96px";
+if (fixtureEnabled) {
+  const fixtureSize = overlayLayoutSizes[fixtureLayout];
+  rootElement.style.width = `${fixtureSize.width}px`;
+  rootElement.style.height = `${fixtureSize.height}px`;
+}
 
 createRoot(rootElement).render(
   <React.StrictMode>

@@ -1,5 +1,10 @@
 import { useEffect, useRef } from "react";
-import { FluidSurface, type FluidMotionSample, linearLiquidLevel } from "./fluidPhysics";
+import {
+  FluidBodyMomentum,
+  FluidSurface,
+  type FluidMotionSample,
+  linearLiquidLevel,
+} from "./fluidPhysics";
 import { OpticalFluidRenderer } from "./opticalFluidRenderer";
 
 interface FluidReservoirProps {
@@ -80,6 +85,7 @@ function drawReservoir(
   height: number,
   percent: number,
   surface: FluidSurface,
+  flowOffset: readonly [number, number],
   palette: Palette,
   time: number,
   active: boolean,
@@ -146,44 +152,21 @@ function drawReservoir(
 
   const causticHeight = Math.min(82, liquidDepth * 0.58);
   const causticStart = insetTop + innerHeight - causticHeight;
-  context.lineWidth = 0.9;
-  context.strokeStyle = palette.caustic;
-  context.shadowColor = palette.caustic;
-  context.shadowBlur = 7;
-  for (let strand = 0; strand < 13; strand += 1) {
-    const seed = strand * 1.173;
-    const drift = active ? Math.sin(time * 0.00074 + seed) * 7 : Math.sin(seed) * 3;
-    const startX = insetX + ((strand + 0.35) / 13) * innerWidth + drift;
-    context.beginPath();
-    context.moveTo(startX - 12, insetTop + innerHeight + 4);
-    context.bezierCurveTo(
-      startX + Math.sin(seed * 1.7) * 24,
-      causticStart + causticHeight * 0.82,
-      startX - 26 + Math.cos(seed * 2.3) * 18,
-      causticStart + causticHeight * 0.42,
-      startX + Math.sin(seed * 3.1) * 18,
-      causticStart + 1,
-    );
-    context.stroke();
-  }
-  context.shadowBlur = 4;
-  for (let arc = 0; arc < 9; arc += 1) {
-    const seed = arc * 1.913;
-    const centerX = insetX + ((arc + 0.45) / 9) * innerWidth;
-    const centerY = causticStart + (0.3 + ((arc * 0.37) % 0.58)) * causticHeight;
-    const radiusX = 18 + (arc % 4) * 7;
-    const radiusY = 7 + (arc % 3) * 4;
-    context.beginPath();
-    context.ellipse(
-      centerX + (active ? Math.sin(time * 0.0006 + seed) * 4 : 0),
-      centerY,
-      radiusX,
-      radiusY,
-      -0.28 + Math.sin(seed) * 0.34,
-      Math.PI * 0.12,
-      Math.PI * 1.62,
-    );
-    context.stroke();
+  context.filter = "blur(5px)";
+  for (let plume = 0; plume < 7; plume += 1) {
+    const seed = plume * 1.731;
+    const drift = Math.sin(time * (active ? 0.00044 : 0.00018) + seed) * 12
+      + flowOffset[0] * 18;
+    const centerX = insetX + ((plume + 0.45) / 7) * innerWidth + drift;
+    const centerY = causticStart + (0.46 + ((plume * 0.29) % 0.42)) * causticHeight
+      + flowOffset[1] * 10;
+    const radius = 20 + (plume % 3) * 8;
+    const glow = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+    glow.addColorStop(0, palette.caustic);
+    glow.addColorStop(0.5, "rgba(160, 244, 255, .07)");
+    glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    context.fillStyle = glow;
+    context.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
   }
   context.restore();
 
@@ -272,6 +255,7 @@ export function FluidReservoir({
   const surfaceRef = useRef(
     new FluidSurface(56, accent === "mint" ? { tension: 0.175, damping: 0.981 } : undefined),
   );
+  const bodyMomentumRef = useRef(new FluidBodyMomentum());
   const frameRef = useRef<number | null>(null);
   const lastTimeRef = useRef(0);
   const drawRef = useRef<() => void>(() => undefined);
@@ -281,6 +265,7 @@ export function FluidReservoir({
     const fallbackCanvas = fallbackCanvasRef.current;
     if (!webglCanvas || !fallbackCanvas) return;
     const surface = surfaceRef.current;
+    const bodyMomentum = bodyMomentumRef.current;
     const palette = palettes[accent];
     let opticalRenderer: OpticalFluidRenderer | null = null;
     let fallbackEnabled = false;
@@ -304,17 +289,20 @@ export function FluidReservoir({
         opticalRenderer.render({
           remainingPercent,
           surface: surface.heights,
+          flowOffset: bodyMomentum.offset,
+          agitation: bodyMomentum.agitation,
           timeMs: time,
           active: surface.isActive,
         });
         return;
       }
       if (!fallbackEnabled) return;
-      const bounds = fallbackCanvas.getBoundingClientRect();
-      if (bounds.width <= 0 || bounds.height <= 0) return;
+      const logicalWidth = fallbackCanvas.clientWidth;
+      const logicalHeight = fallbackCanvas.clientHeight;
+      if (logicalWidth <= 0 || logicalHeight <= 0) return;
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      const pixelWidth = Math.max(1, Math.round(bounds.width * ratio));
-      const pixelHeight = Math.max(1, Math.round(bounds.height * ratio));
+      const pixelWidth = Math.max(1, Math.round(logicalWidth * ratio));
+      const pixelHeight = Math.max(1, Math.round(logicalHeight * ratio));
       if (fallbackCanvas.width !== pixelWidth || fallbackCanvas.height !== pixelHeight) {
         fallbackCanvas.width = pixelWidth;
         fallbackCanvas.height = pixelHeight;
@@ -322,7 +310,17 @@ export function FluidReservoir({
       const context = fallbackCanvas.getContext("2d");
       if (!context) return;
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      drawReservoir(context, bounds.width, bounds.height, remainingPercent, surface, palette, time, surface.isActive);
+      drawReservoir(
+        context,
+        logicalWidth,
+        logicalHeight,
+        remainingPercent,
+        surface,
+        bodyMomentum.offset,
+        palette,
+        time,
+        surface.isActive,
+      );
     };
     drawRef.current = () => render();
     render();
@@ -351,8 +349,10 @@ export function FluidReservoir({
 
   useEffect(() => {
     const surface = surfaceRef.current;
+    const bodyMomentum = bodyMomentumRef.current;
     if (reducedMotion) {
       surface.reset();
+      bodyMomentum.reset();
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
       drawRef.current();
@@ -360,13 +360,16 @@ export function FluidReservoir({
     }
     if (motion.sequence === 0) return;
     surface.disturb(motion.accelerationX, motion.accelerationY, motion.phase === "released");
+    bodyMomentum.disturb(motion.accelerationX, motion.accelerationY, motion.phase === "released");
     if (frameRef.current !== null) return;
     lastTimeRef.current = performance.now();
 
     const animate = (time: number) => {
       const frameScale = Math.min(2, Math.max(0.35, (time - lastTimeRef.current) / 16.667));
       lastTimeRef.current = time;
-      const active = surface.step(frameScale);
+      const surfaceActive = surface.step(frameScale);
+      const bodyActive = bodyMomentum.step(frameScale);
+      const active = surfaceActive || bodyActive;
       drawRef.current();
       frameRef.current = active ? requestAnimationFrame(animate) : null;
     };
