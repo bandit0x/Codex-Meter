@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import type { CapacitySnapshot } from "./capacityTypes";
+import type { OverlayLayout } from "./windowClient";
 
 const visualFixture: CapacitySnapshot = {
   sourceState: "healthy",
@@ -21,12 +22,47 @@ const visualFixture: CapacitySnapshot = {
   observedAtMs: Date.now(),
 };
 
-const useVisualFixture = import.meta.env.DEV
-  && new URLSearchParams(window.location.search).get("fixture") === "v4";
+const visualFixtureNames = new Set([
+  "v4",
+  "v7-healthy",
+  "v7-loading",
+  "v7-failed",
+  "v7-expanded",
+  "v7-collapsed",
+]);
 
-const fixtureProps = useVisualFixture
+function resolveFixtureLayout(
+  fixtureName: string | null,
+  requestedLayout: string | null,
+): OverlayLayout {
+  if (fixtureName === "v7-expanded") return "expanded";
+  if (fixtureName === "v7-collapsed") return "collapsed";
+  if (requestedLayout === "expanded" || requestedLayout === "collapsed") return requestedLayout;
+  return "compact";
+}
+
+function createFixtureLoader(fixtureName: string | null) {
+  if (fixtureName === "v7-loading") {
+    return () => new Promise<CapacitySnapshot>(() => undefined);
+  }
+  if (fixtureName === "v7-failed") {
+    return async (): Promise<CapacitySnapshot> => {
+      throw { code: "CRV-201", message: "无法读取 Codex 配额", detail: null };
+    };
+  }
+  return async () => visualFixture;
+}
+
+const query = new URLSearchParams(window.location.search);
+const fixtureName = import.meta.env.DEV ? query.get("fixture") : null;
+const requestedLayout = query.get("layout");
+const fixtureLayout = resolveFixtureLayout(fixtureName, requestedLayout);
+const fixtureEnabled = fixtureName !== null && visualFixtureNames.has(fixtureName);
+
+const fixtureProps: React.ComponentProps<typeof App> = fixtureEnabled
   ? {
-      loadSnapshot: async () => visualFixture,
+      initialLayout: fixtureLayout,
+      loadSnapshot: createFixtureLoader(fixtureName),
       loadPreferences: async () => ({ opacity: 0.92, reducedMotion: false, x: null, y: null }),
       savePreferences: async () => undefined,
       enableClickThrough: async () => undefined,
@@ -36,7 +72,10 @@ const fixtureProps = useVisualFixture
     }
   : {};
 
-createRoot(document.getElementById("root") as HTMLElement).render(
+const rootElement = document.getElementById("root") as HTMLElement;
+if (fixtureName === "v7-collapsed") rootElement.style.height = "96px";
+
+createRoot(rootElement).render(
   <React.StrictMode>
     <App {...fixtureProps} />
   </React.StrictMode>,

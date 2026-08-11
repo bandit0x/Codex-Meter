@@ -26,6 +26,7 @@ import {
 export type CapacityLoader = () => Promise<CapacitySnapshot>;
 
 interface AppProps {
+  initialLayout?: OverlayLayout;
   loadSnapshot?: CapacityLoader;
   loadPreferences?: () => Promise<DisplayPreferences>;
   savePreferences?: (preferences: DisplayPreferences) => Promise<void>;
@@ -222,6 +223,7 @@ function freshnessText(snapshot: CapacitySnapshot, stale: boolean, diagnostic?: 
 }
 
 export function App({
+  initialLayout = "compact",
   loadSnapshot = readCapacitySnapshot,
   loadPreferences = loadDisplayPreferences,
   savePreferences = saveDisplayPreferences,
@@ -235,7 +237,7 @@ export function App({
   const lastSnapshotRef = useRef<CapacitySnapshot | null>(null);
   const loadGenerationRef = useRef(0);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
-  const [layoutMode, setLayoutMode] = useState<OverlayLayout>("compact");
+  const [layoutMode, setLayoutMode] = useState<OverlayLayout>(initialLayout);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [clickThroughSeconds, setClickThroughSeconds] = useState(0);

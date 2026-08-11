@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex Capacity · 50% 等比例缩放合同</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; width: 100%; min-height: 100%; }
+      body {
+        padding: 54px 64px 64px;
+        color: #12212c;
+        background:
+          radial-gradient(circle at 78% 8%, rgba(78, 216, 255, .18), transparent 26%),
+          linear-gradient(145deg, #f7fafc, #dce5eb);
+        font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 34px;
+      }
+      h1 { margin: 0 0 8px; font-size: 34px; letter-spacing: -.03em; }
+      p { margin: 0; color: #516672; font-size: 16px; }
+      .ratio {
+        padding: 10px 16px;
+        border: 1px solid rgba(12, 88, 112, .22);
+        border-radius: 14px;
+        color: #07516c;
+        background: rgba(255,255,255,.62);
+        font-size: 18px;
+        font-weight: 720;
+      }
+      .comparison {
+        display: grid;
+        grid-template-columns: 600px 88px 600px;
+        align-items: center;
+        gap: 22px;
+      }
+      .stage h2, .state h2 {
+        margin: 0 0 12px;
+        font-size: 15px;
+        font-weight: 720;
+        letter-spacing: .07em;
+      }
+      .current img { display: block; width: 600px; height: 260px; }
+      .footprint {
+        width: 600px;
+        height: 260px;
+        display: grid;
+        place-items: center;
+        border: 1px dashed rgba(25, 74, 92, .34);
+        border-radius: 24px;
+        background: rgba(255,255,255,.28);
+      }
+      .target-compact { display: block; width: 300px; height: 130px; }
+      .arrow { color: #22799a; font-size: 48px; text-align: center; }
+      .measure {
+        margin-top: 10px;
+        display: flex;
+        justify-content: space-between;
+        color: #566b76;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .measure strong { color: #123e51; }
+      .states {
+        margin-top: 34px;
+        padding-top: 28px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 26px;
+        border-top: 1px solid rgba(18, 73, 94, .16);
+      }
+      .state {
+        min-height: 232px;
+        padding: 20px;
+        border: 1px solid rgba(20, 83, 104, .14);
+        border-radius: 20px;
+        background: rgba(255,255,255,.48);
+      }
+      .state figure {
+        min-height: 166px;
+        margin: 0;
+        display: grid;
+        place-items: center;
+      }
+      .state img { display: block; }
+      .state .compact { width: 300px; height: 130px; }
+      .state .expanded { width: 300px; height: 160px; }
+      .state .collapsed { width: 260px; height: 48px; }
+      .state footer {
+        margin-top: 12px;
+        color: #4b626e;
+        font-size: 13px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+      .contract {
+        margin-top: 26px;
+        padding: 18px 22px;
+        display: flex;
+        gap: 34px;
+        border-radius: 18px;
+        color: #2d4c5a;
+        background: rgba(236, 250, 255, .72);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.94);
+        font-size: 14px;
+      }
+      .contract b { color: #063f57; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Codex Capacity · 半尺寸设计合同</h1>
+        <p>只改变物理占位，不改变构图、信息层级、玻璃比例与液体百分比映射。</p>
+      </div>
+      <div class="ratio">线性比例 50%</div>
+    </header>
+
+    <section class="comparison" aria-label="主态尺寸对照">
+      <div class="stage current">
+        <h2>当前主态 · 100%</h2>
+        <img src="source-compact-600x260.png" alt="当前 600×260 主态" />
+        <div class="measure"><span>窗口占位</span><strong>600 × 260 px</strong></div>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="stage target">
+        <h2>提案主态 · 50%</h2>
+        <div class="footprint">
+          <img class="target-compact" src="source-compact-600x260.png" alt="提案 300×130 主态" />
+        </div>
+        <div class="measure"><span>虚线为旧占位</span><strong>300 × 130 px</strong></div>
+      </div>
+    </section>
+
+    <section class="states" aria-label="半尺寸状态集">
+      <article class="state">
+        <h2>COMPACT</h2>
+        <figure><img class="compact" src="source-compact-600x260.png" alt="300×130 主态" /></figure>
+        <footer>600×260 → <b>300×130</b></footer>
+      </article>
+      <article class="state">
+        <h2>EXPANDED</h2>
+        <figure><img class="expanded" src="source-expanded-600x320.png" alt="300×160 展开态" /></figure>
+        <footer>600×320 → <b>300×160</b></footer>
+      </article>
+      <article class="state">
+        <h2>COLLAPSED</h2>
+        <figure><img class="collapsed" src="source-collapsed-520x96.png" alt="260×48 折叠态" /></figure>
+        <footer>520×96 → <b>260×48</b></footer>
+      </article>
+    </section>
+
+    <div class="contract">
+      <span><b>字体 / 间距 / 圆角：</b>全部 × 0.5</span>
+      <span><b>外壳 / 舱壁：</b>18 / 16 px → 9 / 8 px</span>
+      <span><b>液体：</b>液位比例不变，波幅与焦散尺度 × 0.5</span>
+      <span><b>交互：</b>拖动和惯性参数保持时间尺度，位移尺度 × 0.5</span>
+    </div>
+  </body>
+</html>
