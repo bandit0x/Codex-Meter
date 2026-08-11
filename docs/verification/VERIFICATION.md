@@ -2,52 +2,63 @@
 
 **Status:** Acceptance pending
 
-The V7 optical build now has current real-window evidence from the packaged
-Tauri executable. It keeps the approved 600x260 proportions and the V6 thick
-glass shell, while restoring a visibly volumetric liquid model: animated free
-surface refraction, Beer-Lambert-style depth transmission, body scattering,
-large-scale caustics, a thick meniscus and an independently damped drag slosh.
-Liquid height remains linear with the quota percentage. Automated and
-real-window checks pass; user visual acceptance is still required.
+V8 is the approved strict half-scale implementation. Compact, expanded and
+collapsed windows are now 300x130, 300x160 and 260x48 logical pixels. The
+original CSS composition is rendered at 0.5 scale, so typography, spacing,
+glass walls, liquid amplitude and interaction geometry remain proportional.
+
+The liquid volume no longer uses the rejected Voronoi/grid filaments. It uses
+a continuous advected density field, curl-derived velocity, density-gradient
+lighting and soft bottom-focused caustics. Window acceleration drives both the
+conserved free-surface model and a separately damped body-momentum field, so
+the internal optical density continues moving after pointer release.
+
+**Source:** local commit `7c65565` (`feat: halve overlay and advect liquid volume`).
 
 **Target environment:** Windows 11 x64, Tauri 2.11.5, Rust 1.97.1,
 Node.js 24.18.0, official `@openai/codex` 0.147.0 runtime, and bundled
 Microsoft Edge WebView2 Fixed Runtime 151.0.4129.78.
 
 **Artifact:** `release/CodexCapacity-0.1.0-win-x64/` (locally generated and
-ignored by Git). The current executable SHA-256 is
-`9cf1035eb3031e17190316f3963ce14b9ac34dc9e398dd6f2836b0790ed6a877`.
+ignored by Git), 257 files / 997,552,150 bytes. `Codex Capacity.exe` SHA-256:
+`a8509e4b32eeca1a15c3fa467f099cdce2dd64027b1007e10a137a6645b5e567`.
 
 ## Current checks
 
 | Journey or boundary | Command / action | Actual result |
 | --- | --- | --- |
-| React state and interaction | `npm.cmd test` | Passed: 17 tests, including loading, healthy/failure/stale states, settings, layout transitions, linear 18%/95% liquid volume, volume conservation, independent chamber state, pointer-drag position updates, the immediate-drag/native-position race, and required Tauri drag permission. |
-| Type and production frontend | `npm.cmd run typecheck`; `npm.cmd run build` | Passed; Vite emitted the production assets. |
-| Rust integration | `cargo clippy --all-targets -- -D warnings`; `cargo test` | Passed; Clippy is clean and 13 Rust tests passed, including rejection of an incomplete adjacent WebView2 runtime. The localized linker import-library notice is informational. |
+| React state and interaction | `npm.cmd test -- --run` | Passed: 19 tests across 4 files, including exact half-scale layout sizes, linear quota-to-volume mapping, surface-volume conservation, independent chambers, body-momentum decay, state rendering and pointer drag behavior. |
+| Type and production frontend | `npm.cmd run typecheck`; production build inside `npm.cmd run tauri:build` | Passed; Vite emitted the production assets. |
+| Rust integration | `cargo clippy --all-targets -- -D warnings`; `cargo test` | Passed; Clippy is clean and all 13 Rust tests passed. The localized MSVC import-library linker notice is informational. |
 | Impeccable mechanical scan | `node .agents/skills/impeccable/scripts/detect.mjs --json ...` | Passed with zero findings. |
-| Static V7 render | Chrome 600x260 development fixture using the production React/CSS/WebGL2 components | Passed as a diagnostic comparison: strict 18%/95% levels, a moving multi-band meniscus, refracted chamber background, depth-dependent transmission/scattering, particles, broad light sheets and animated caustics are visible. Two frames 0.8 seconds apart produced mean absolute RGB differences of 2.374 in the shallow 18% liquid crop and 2.236 in the 95% liquid crop, proving continuous motion rather than a static texture. |
-| Release build | `npm.cmd run tauri:build`; `scripts/package-portable.ps1` | Passed; 257 files / 997,551,540 bytes before verification signatures. The portable directory contains the executable, pinned Codex runtime, Microsoft-signed WebView2 Fixed Runtime, README, notices and SHA-256 manifest. |
-| WebView2-independent portable launch | Start the release executable, wait 8 seconds, enumerate `msedgewebview2` processes by executable path | Passed; the app remained running and all 6 observed WebView2 processes loaded `release/.../webview2-runtime/msedgewebview2.exe`. The runtime signature is valid and issued to Microsoft Corporation. |
-| Real Tauri drag | Win32 pointer drag against the packaged 600x260 window; compare `GetWindowRect` before/after | Passed: a 126x58 pointer path produced a final 237x108 window displacement. Between 25ms and 220ms after release, the shell continued another 79x35, proving window glide rather than a static jump. |
-| Real liquid post-release motion | Capture the packaged window before drag and at 25ms, 220ms and 900ms after release; compare the weekly chamber crop | Passed on a real 15% quota. The surface first banked left, then rose sharply at the right wall, then crossed back toward level. Mean absolute RGB differences were 5.209, 9.664 and 8.751 between consecutive frames, proving independent liquid inertia and ongoing optical flow. |
-| Real Tauri visual comparison | Compare the current 600x260 packaged-window capture with the approved V4 material at the same composition | Implementation evidence passes: transparent exterior margin, continuous four-sided outer lens, equal chambers, linear liquid height, a visibly thick free surface, refracted shallow volume, moving caustics and inset footer hierarchy are present. **Acceptance pending:** the project owner has not yet approved this V7 capture. |
+| Five visual states | Deterministic Chromium/WebGL2 fixtures at the physical target sizes | Passed: healthy, loading, failed, expanded and collapsed screenshots use 300x130, 300x160 or 260x48 crops. No liquid grid or mid-volume hard lines remain. |
+| Release build | `npm.cmd run tauri:build`; `scripts/package-portable.ps1` | Passed; the manifest records source commit `7c65565`, the pinned Codex runtime and WebView2 Fixed Runtime. |
+| WebView2-independent portable launch | Start the packaged executable with isolated AppData and inspect processes created after launch | Passed; the app created a 300x130 real window and 7 WebView2 processes from the bundled runtime, so the machine-wide WebView2 installation is not required. |
+| Real Tauri drag inertia | Drag the packaged window 81x45 px, then compare `GetWindowRect` after release | Passed: the window was displaced 94x52 by 25 ms, coasted another 61x34 by 220 ms, then another 16x9 by 900 ms. |
+| Real liquid post-release motion | Capture the packaged window before drag and at 25 ms, 220 ms and 900 ms; compare the weekly chamber at matching local coordinates | Passed on a real 88% weekly quota. The surface banks and rebounds across all four frames. Mean absolute RGB changes for the full weekly chamber were 9.232, 14.969 and 5.372; the lower body-only crop still changed by 1.350, 1.951 and 0.825, confirming continuing internal density movement rather than only a moving edge. |
+| Reference and license review | Review `D:/bandit/refs/ui-refs/webgl-fluid-simulation/script.js` and MIT license | Passed. The implementation adapts backward-advection, curl/vorticity and density-gradient-lighting concepts without copying the reference framebuffer solver; attribution is in `THIRD_PARTY_NOTICES.md`. |
 
 ## Evidence
 
-- [V7 real Tauri pre-drag frame](screenshots/v7-volumetric-tauri-before.png)
-- [V7 real Tauri release motion frame A](screenshots/v7-volumetric-tauri-motion-a.png)
-- [V7 real Tauri release motion frame B](screenshots/v7-volumetric-tauri-motion-b.png)
-- [V7 real Tauri settled frame](screenshots/v7-volumetric-tauri-final.png)
+- [V8 real Tauri pre-drag frame](screenshots/v8-half-tauri-before.png)
+- [V8 real Tauri release frame at 25 ms](screenshots/v8-half-tauri-motion-25ms.png)
+- [V8 real Tauri release frame at 220 ms](screenshots/v8-half-tauri-motion-220ms.png)
+- [V8 real Tauri release frame at 900 ms](screenshots/v8-half-tauri-motion-900ms.png)
+- [V8 deterministic healthy state](screenshots/v8-half-healthy.png)
+- [V8 deterministic loading state](screenshots/v8-half-loading.png)
+- [V8 deterministic failed state](screenshots/v8-half-failed.png)
+- [V8 deterministic expanded state](screenshots/v8-half-expanded.png)
+- [V8 deterministic collapsed state](screenshots/v8-half-collapsed.png)
+- [Approved half-scale contract](../../.impeccable/mocks/rework-v5/half-scale-contract.png)
 - [Approved V4 material](../../.impeccable/mocks/rework-v4/v4-volumetric-material.png)
-- [Approved V4 inertia storyboard](../../.impeccable/mocks/rework-v4/v4-fluid-inertia-storyboard-v2.png)
 
 ## Known limitations
 
 - The portable directory is about 998 MB because it includes both the official
   Windows x64 Codex CLI runtime and a complete WebView2 Fixed Runtime. The
   executable must remain beside both runtime directories.
-- Expanded, failure and collapsed states still need refreshed packaged
-  screenshots if the owner accepts this compact-state V7 visual direction.
+- Strict 50% scaling also halves small secondary copy and control targets; this
+  is faithful to the approved contract but is denser than standard desktop
+  accessibility guidance.
 - There is intentionally no installer, updater, code signature, usage history,
   notification system, startup registration, or reset redemption.
