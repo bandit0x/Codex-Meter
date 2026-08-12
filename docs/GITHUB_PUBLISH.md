@@ -144,7 +144,55 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\verify-portable-
 
 任一必需检查失败时，不要把版本描述成已验证。
 
-## 四、选择默认分支
+## 四、创建不含旧历史的公开副本
+
+如果不希望公开旧提交中的绝对路径、已删除文件和开发过程，推荐从当前已审核
+提交导出一个全新的单提交仓库。这样会保留当前源码，不会复制原仓库的 `.git`
+目录。
+
+先在原仓库完成以下事项：
+
+- 提交所有准备公开的修改。
+- 添加项目级 `LICENSE`。
+- 删除或裁剪不准备公开的验收截图。
+- 确认 `git status --short` 为空。
+
+然后在原仓库根目录运行：
+
+```powershell
+$sourceRoot = (Get-Location).Path
+$publishParent = Split-Path -Parent $sourceRoot
+$publishRoot = Join-Path $publishParent 'codex-meter-public'
+$archive = Join-Path $publishParent 'codex-meter-public.zip'
+
+if ((Test-Path -LiteralPath $publishRoot) -or (Test-Path -LiteralPath $archive)) {
+    throw '公开副本目录或压缩包已存在，请先人工检查并改用新的名称。'
+}
+
+git archive --format=zip --output $archive HEAD
+Expand-Archive -LiteralPath $archive -DestinationPath $publishRoot
+Set-Location -LiteralPath $publishRoot
+
+git init -b main
+git add --all
+git commit -m 'Initial public release'
+git log --oneline
+```
+
+正常情况下，最后的日志只显示一个新提交。再检查公开副本：
+
+```powershell
+git status --short --branch
+git log --all --oneline
+git grep -n -I -E 'D:[/\\]bandit|C:[/\\]Users[/\\]'
+git ls-files | Select-String -Pattern '\.env|credential|secret|token|cookie|profile|dump|\.log$'
+```
+
+这份 `codex-meter-public` 才是后续创建 GitHub 仓库时使用的目录。原始本地仓库
+继续保留完整开发历史作为私有备份。不要给公开副本添加指向原仓库的远程地址，
+也不要推送原仓库的标签。
+
+## 五、如果决定保留原历史：选择默认分支
 
 ### 方案 A：保留 `master`
 
@@ -161,7 +209,7 @@ git status --short --branch
 
 后面的命令相应使用 `main`。
 
-## 五、推荐发布方法：GitHub CLI
+## 六、推荐发布方法：GitHub CLI
 
 ### 1. 安装并登录 GitHub CLI
 
@@ -186,19 +234,13 @@ gh auth status
 
 不要把访问令牌粘贴进项目文件或提交记录。
 
-### 2. 创建私有仓库并推送
+### 2. 从清洁副本创建私有仓库并推送
 
-保留 `master` 时：
-
-```powershell
-gh repo create codex-meter --private --source . --remote origin
-git remote -v
-git push -u origin master
-```
-
-已经改为 `main` 时：
+确认当前目录是上一节生成的 `codex-meter-public`，且只有一个 `main` 提交：
 
 ```powershell
+git branch --show-current
+git log --all --oneline
 gh repo create codex-meter --private --source . --remote origin
 git remote -v
 git push -u origin main
@@ -214,7 +256,7 @@ gh repo create codex-meter --private --source . --remote origin --push
 
 如确定要公开，把 `--private` 改为 `--public`。不要同时提供两个可见性参数。
 
-## 六、备选方法：GitHub 网页创建仓库
+## 七、备选方法：GitHub 网页创建仓库
 
 1. 登录 GitHub。
 2. 打开右上角 `+`，选择 `New repository`。
@@ -243,7 +285,7 @@ git push -u origin master
 git push -u origin main
 ```
 
-## 七、首次推送后的 GitHub 检查
+## 八、首次推送后的 GitHub 检查
 
 在网页上逐项确认：
 
@@ -269,7 +311,7 @@ git remote remove origin
 
 这只会删除本地远程映射，不会删除 GitHub 上已经上传的内容。
 
-## 八、可选：发布 Codex Meter 便携版本
+## 九、可选：发布 Codex Meter 便携版本
 
 ### 1. 重新构建并验证
 
@@ -331,7 +373,7 @@ gh release create v0.1.0 `
 - 附上 ZIP 的 SHA-256。
 - 确认第三方运行时的再分发条件后，再点击 Publish release。
 
-## 九、以后更新源码
+## 十、以后更新源码
 
 日常流程：
 
@@ -345,7 +387,7 @@ git push
 
 不要习惯性执行 `git add .`。先检查差异，再只加入明确要提交的文件。
 
-## 十、常见问题
+## 十一、常见问题
 
 ### `remote origin already exists`
 

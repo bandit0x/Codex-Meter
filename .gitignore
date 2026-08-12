@@ -2,6 +2,7 @@ node_modules/
 .npm-cache/
 .cargo-cache/
 .playwright-cli/
+.agents/skills/impeccable/
 .scratch/tauri-scaffold-temp/
 dist/
 target/

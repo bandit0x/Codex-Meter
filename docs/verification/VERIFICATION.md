@@ -50,7 +50,7 @@ including WebView2 component manifests.
 | React state and interaction | `npm.cmd test -- --run` | Passed: 19 tests across 4 files, including exact half-scale layout sizes, linear quota-to-volume mapping, surface-volume conservation, independent chambers, body-momentum decay, state rendering and pointer drag behavior. |
 | Type and production frontend | `npm.cmd run typecheck`; production build inside `npm.cmd run tauri:build` | Passed; Vite emitted the production assets. |
 | Rust integration | `cargo clippy --all-targets -- -D warnings`; `cargo test` | Passed; Clippy is clean and all 14 Rust tests passed, including the no-taskbar configuration contract. The localized MSVC import-library linker notice is informational. |
-| Impeccable mechanical scan | `node .agents/skills/impeccable/scripts/detect.mjs --json ...` | Passed with zero findings. |
+| Historical UI mechanical scan | Run the Impeccable detector from the developer's local skill installation | Passed with zero findings. The development tool is not vendored in this repository. |
 | Five visual states | Deterministic Chromium/WebGL2 fixtures at the physical target sizes | Passed: healthy, loading, failed, expanded and collapsed screenshots use 300x130, 300x160 or 260x48 crops. No liquid grid or mid-volume hard lines remain. |
 | Release build | `npm.cmd run tauri:build`; `scripts/package-portable.ps1` | Passed; the reproducible manifest records source commit `e8efcaf`, the pinned Codex runtime and WebView2 Fixed Runtime. |
 | Quiet child processes | Monitor every visible top-level window belonging to the packaged app and its descendants for 65 seconds | Passed across initial load and the 60-second automatic refresh: zero `ConsoleWindowClass` windows were created. |

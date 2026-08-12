@@ -183,9 +183,6 @@ codex-meter/
 需要选择并提交许可证；`THIRD_PARTY_NOTICES.md` 仅记录第三方条款，不能替代
 项目自身许可证。
 
-仓库还包含用于开发的 Impeccable 设计技能快照。其上游以 Apache-2.0 发布，
-正式公开前应确保仓库保留上游 `LICENSE` 与 `NOTICE` 要求。[^impeccable]
-
 ## 🙏 致谢
 
 - [OpenAI Codex](https://github.com/openai/codex)：本机 Codex 运行时和
@@ -194,7 +191,6 @@ codex-meter/
 - [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)：
   流体运动参考。
 - [Canvas UI](https://github.com/DavidHDev/canvas-ui)：光学玻璃材质参考。
-- [Impeccable](https://github.com/pbakaus/impeccable)：设计工作流与质量检查。
 
 完整归属与许可链接见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 
@@ -206,4 +202,3 @@ codex-meter/
 
 [^codex-app-server]: [OpenAI Codex `app-server` 官方文档](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md)
 [^tauri-prerequisites]: [Tauri 2 Windows 前置条件](https://v2.tauri.app/start/prerequisites/#windows)
-[^impeccable]: [Impeccable 上游仓库与 Apache-2.0 许可](https://github.com/pbakaus/impeccable)
