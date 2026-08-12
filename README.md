@@ -14,7 +14,6 @@ Codex Meter 通过本机 Codex `app-server` 读取只读配额数据，在一个
 > Codex Meter 是非官方社区项目，与 OpenAI 或 ChatGPT 无隶属、赞助或背书关系。
 
 ![Codex Meter 正常状态，画面使用测试数据](docs/verification/screenshots/v8-half-healthy.png)
-
 _图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实账号或配额信息。_
 
 ## ✨ 主要功能
