@@ -4,81 +4,105 @@
   <img src="src-tauri/icons/icon.png" width="112" alt="Codex Meter 七瓣交织图标">
 </p>
 
-Codex Meter 是一款面向 Windows 11 的 Codex 配额桌面浮窗。它通过本机
-Codex `app-server` 读取只读配额数据，以同等视觉优先级展示 5 小时额度、
-一周额度、重置时间和可用完整重置次数。
+_Windows 11 上的轻量 Codex 配额桌面浮窗。_
+
+---
+
+Codex Meter 通过本机 Codex `app-server` 读取只读配额数据，在一个可拖动的液态玻璃浮窗中并列展示 **5 小时额度**和**一周额度**。应用手动启动、常驻通知区域，不创建开机启动项，也不会占用普通任务栏位置。
 
 > [!IMPORTANT]
-> 本项目是非官方社区工具，与 OpenAI 或 ChatGPT 无隶属、赞助或背书关系。
+> Codex Meter 是非官方社区项目，与 OpenAI 或 ChatGPT 无隶属、赞助或背书关系。
 
-![Codex Meter 健康状态演示，画面使用测试数据](docs/verification/screenshots/v8-half-healthy.png)
-_Codex Meter 健康状态，画面使用测试数据。_
+![Codex Meter 正常状态，画面使用测试数据](docs/verification/screenshots/v8-half-healthy.png)
+_图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实账号或配额信息。_
 
-## ✨ 功能
+## ✨ 主要功能
 
-- 5 小时与一周配额并列显示，不弱化任一时间窗口。
-- 剩余百分比与舱内液体体积线性对应。
-- 拖动窗口时具有窗口惯性与独立液体晃动；释放后液体继续阻尼回摆。
-- 支持紧凑、展开、折叠、加载和失败状态。
-- 无普通任务栏按钮，通过 Windows 通知区域图标显示、隐藏或退出。
-- 手动启动，不注册开机启动项、计划任务或后台服务。
-- 支持刷新、限时鼠标穿透、透明度和“减少动态效果”设置。
-- 错误状态提供可操作提示和稳定诊断码。
+- 以同等视觉层级展示 5 小时和一周剩余额度
+- 液体高度随剩余百分比线性变化
+- 每 60 秒自动刷新，也可在展开视图中手动刷新
+- 展示额度重置时间和可用完整重置次数
+- 支持紧凑、展开和窄条三种布局
+- 支持窗口拖动惯性和独立液体晃动
+- 支持 10 秒鼠标穿透、透明度调节和减少动效
+- 关闭窗口后隐藏到 Windows 通知区域，可从托盘重新显示或退出
+- 数据读取失败时保留最近一次有效数据，并显示稳定诊断码
 
-## 🔒 数据与隐私边界
+## 🖼️ 界面状态
 
-Codex Meter 只启动一个独立的本机 Codex `app-server` 进程，并读取其账号配额
-接口。它不会附加到 Codex Desktop 的私有标准输入输出，不读取进程内存、
-浏览器 Cookie 或登录令牌，也不会兑换完整重置次数或修改账号状态。Codex 的
-登录和网络通信仍由官方 Codex 运行时负责。[^codex-app-server]
+| 紧凑视图 | 展开视图 | 失败状态 |
+| --- | --- | --- |
+| ![Codex Meter 紧凑视图](docs/verification/screenshots/v8-half-healthy.png) | ![Codex Meter 展开视图](docs/verification/screenshots/v8-half-expanded.png) | ![Codex Meter 失败状态](docs/verification/screenshots/v8-half-failed.png) |
 
-应用仅在当前 Windows 用户目录中保存透明度、动效偏好等显示设置。项目源码
-不需要 `.env`、API Key 或个人访问令牌。
+其他确定性测试状态包括[加载状态](docs/verification/screenshots/v8-half-loading.png)和[窄条状态](docs/verification/screenshots/v8-half-collapsed.png)。这些截图均使用测试夹具生成。
 
-```mermaid
-flowchart LR
-    accTitle: Codex Meter 数据流
-    accDescr: Codex Meter 启动独立的本机 Codex app-server，读取配额并在 Windows 浮窗中显示；本地仅保存显示偏好。
+## 🚀 安装与使用
 
-    user["Windows 用户"] --> overlay["Codex Meter 浮窗"]
-    overlay -->|"只读 JSON-RPC"| server["本机 Codex app-server"]
-    server -->|"由 Codex 管理认证"| account["Codex 账号服务"]
-    overlay --> prefs["本地显示偏好"]
-    overlay -.-> tray["Windows 通知区域"]
+Codex Meter 当前以 Windows x64 便携目录运行，不需要安装器。
+
+### 运行要求
+
+- Windows 11 x64
+- 当前 Windows 用户已经登录 Codex
+- 完整解压便携包，不要只复制可执行文件
+
+便携目录必须保持以下结构：
+
+```text
+CodexMeter-<版本>-win-x64/
+├── Codex Meter.exe
+├── codex-runtime/
+└── webview2-runtime/
 ```
 
-## 🖥️ 运行要求
+### 启动步骤
 
-- Windows 11 x64。
-- 同一 Windows 用户已登录 Codex。
-- 便携目录中的 `Codex Meter.exe`、`codex-runtime` 和
-  `webview2-runtime` 必须保持在一起。
+1. 完整解压便携包
+2. 双击 `Codex Meter.exe`
+3. 在浮窗非按钮区域按住鼠标左键拖动窗口
+4. 点击右下角箭头展开详情、刷新、穿透或显示设置
+5. 关闭浮窗后，通过 Windows 通知区域图标重新显示或退出程序
 
-便携包使用固定版本 WebView2 Runtime，因此不依赖机器上预装的 WebView2。
-开发环境仍需 Node.js、Rust MSVC 工具链和 Tauri 2 所需的 Windows 构建组件；
-具体前置条件见 Tauri 官方文档。[^tauri-prerequisites]
+应用不会自动开机启动。重新启动 Windows 后，需要再次手动运行 `Codex Meter.exe`。
 
-## 🚀 使用便携版
+## 🔐 数据与隐私
 
-1. 解压完整的 Codex Meter 便携包。
-2. 确认 `codex-runtime` 与 `webview2-runtime` 位于 EXE 同级目录。
-3. 双击 `Codex Meter.exe`。
-4. 从浮窗顶部拖动窗口；点击右下角箭头展开详细信息。
-5. 关闭浮窗只会隐藏到通知区域；从托盘菜单选择“退出”才会结束程序。
+Codex Meter 启动独立的本机 Codex `app-server` 进程，通过只读 JSON-RPC 请求获取账号配额。认证和网络通信仍由官方 Codex 运行时处理。[^codex-app-server]
 
-项目当前没有安装器和自动更新器。发布二进制文件前，请同时遵守
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 中各运行时的再分发条款。
+应用不会：
 
-## 🛠️ 从源码开发
+- 读取其他进程的内存
+- 读取浏览器 Cookie 或登录令牌
+- 要求 `.env`、API Key 或个人访问令牌
+- 修改账号状态或自动使用完整重置次数
+- 将配额、日志或配置上传到第三方服务
 
-在已安装 Node.js、Rust 和 Windows MSVC 构建工具的 PowerShell 中运行：
+本地仅保存窗口位置、透明度和减少动效等显示偏好。
+
+## 🛠️ 从源码运行
+
+### 开发环境
+
+- Node.js 24
+- Rust MSVC 工具链
+- Visual Studio C++ Build Tools
+- Tauri 2 所需的 Windows 构建组件[^tauri-prerequisites]
+
+在 PowerShell 中运行：
 
 ```powershell
 npm.cmd ci
 npm.cmd run tauri:dev
 ```
 
-常用检查：
+开发构建默认使用测试夹具。需要连接当前用户的真实 Codex 账号时：
+
+```powershell
+$env:CODEX_CREDITS_USE_LIVE = "1"
+npm.cmd run tauri:dev
+```
+
+### 运行检查
 
 ```powershell
 npm.cmd run typecheck
@@ -88,20 +112,16 @@ cargo clippy --manifest-path src-tauri\Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri\Cargo.toml
 ```
 
-本项目已验证的环境基线为 Node.js 24.18.0、Rust 1.97.1、Tauri 2.11.5、
-`@openai/codex` 0.147.0 和 WebView2 Fixed Runtime 151.0.4129.78；这些是
-可复现基线，不代表最低兼容版本。
+### 构建便携包
 
-## 📦 构建便携包
-
-首次构建先下载并校验固定版本 WebView2 Runtime：
+先下载并验证 Microsoft WebView2 Fixed Version Runtime：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File scripts\fetch-webview2-fixed-runtime.ps1
 ```
 
-然后构建 Tauri 可执行文件并生成便携目录：
+然后构建应用并生成便携目录：
 
 ```powershell
 npm.cmd run tauri:build
@@ -111,65 +131,55 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File scripts\verify-portable-brand.ps1
 ```
 
-输出位于 `release/CodexMeter-<版本>-win-x64/`。该目录包含约 1 GB 的运行时，
-已被 Git 忽略；请将其压缩后作为 GitHub Release 附件发布，不要提交到源码历史。
+输出位于 `release/CodexMeter-<版本>-win-x64/`。请将整个目录压缩后作为 GitHub Release 附件发布，不要把运行时或构建产物提交进源码仓库。
 
-## 🧱 技术架构
+## 🧱 技术组成
 
 | 层 | 技术 | 职责 |
 | --- | --- | --- |
-| 桌面外壳 | Tauri 2 / Rust | 窗口、托盘、进程生命周期、Codex JSON-RPC |
-| 界面 | React 19 / TypeScript / Vite | 配额状态、交互、设置与错误恢复 |
-| 材质与动效 | WebGL2 / GLSL | 光学舱体、体积液体、折射与惯性 |
-| 数据源 | `@openai/codex` | 独立本机 `app-server` 与账号配额接口 |
+| 桌面外壳 | Tauri 2、Rust | 窗口、托盘、进程生命周期和 JSON-RPC |
+| 用户界面 | React 19、TypeScript、Vite | 配额状态、交互、设置和错误恢复 |
+| 材质与动效 | WebGL2、GLSL | 光学舱体、体积液体、折射和惯性反馈 |
+| 配额数据 | `@openai/codex` | 本机 `app-server` 和账号配额接口 |
 | 渲染运行时 | Microsoft Edge WebView2 | Windows WebView 渲染 |
 
-OpenAI 将 `codex app-server` 用于驱动丰富界面，并提供版本对应的协议定义；
-该接口仍可能随 Codex 版本演进，因此本项目固定并随包携带已验证的 Codex
-运行时。[^codex-app-server]
+项目固定使用已经验证的 Codex 和 WebView2 运行时版本，以减少不同机器之间的协议及渲染差异。
 
-## 📁 项目结构
+## 🩺 常见问题
 
-```text
-codex-meter/
-├── src/                    # React 界面、WebGL 材质和前端测试
-├── src-tauri/              # Rust 后端、Tauri 配置和应用图标
-├── scripts/                # WebView2 下载、便携打包与品牌验证
-├── docs/adr/               # 关键架构决策
-├── docs/verification/      # 无隐私数据的界面截图
-├── fixtures/               # 测试夹具
-├── LICENSE                 # MIT License
-└── THIRD_PARTY_NOTICES.md  # 第三方来源与许可说明
-```
+### 显示“无法读取 Codex 配额”
 
-## ✅ 验证状态
+确认当前 Windows 用户已经登录 Codex，然后在展开视图中点击“重试”。如果仍然失败，请记录界面上的 `CRV-xxx` 诊断码。
 
-当前源码已通过 19 项前端测试、TypeScript 类型检查、Vite 生产构建、Rust
-Clippy、14 项 Rust 测试和 Tauri 发布构建。界面证据仅保留不含桌面、账号或
-真实配额信息的五种确定性状态截图。
+### 双击后提示缺少 WebView2
+
+请使用完整便携包，并确认 `webview2-runtime` 与 `Codex Meter.exe` 保持同级。不要单独移动 EXE。
+
+### 关闭窗口后程序仍在运行
+
+这是预期行为。关闭按钮只会把浮窗隐藏到通知区域；需要完全退出时，请右键通知区域图标并选择“退出”。
+
+### 鼠标无法操作浮窗
+
+可能启用了临时穿透模式。等待 10 秒后会自动恢复。
 
 ## 🤝 参与贡献
 
-欢迎提交 Issue 和 Pull Request。请为问题提供可重复步骤，并在提交前运行本
-README 中的前端与 Rust 检查。涉及界面的修改应附上真实 Tauri/WebView2
-截图。请勿在公开 Issue 中提交令牌、日志、账号截图或其他敏感数据。第三方
-来源和再分发边界见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+欢迎提交 Issue 和 Pull Request。问题报告请包含 Windows 版本、复现步骤和诊断码；请勿公开上传令牌、日志、账号截图或其他敏感信息。
 
-## 📜 许可证
+提交代码前，请运行“运行检查”中的前端与 Rust 命令。涉及界面的修改请附上真实 Tauri/WebView2 截图。
 
-本项目采用 [MIT License](LICENSE)。第三方组件和运行时仍分别遵循
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 中列出的许可与再分发条款。
+## 📄 许可证
+
+项目源码采用 [MIT License](LICENSE)。第三方组件和便携运行时分别遵循 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 中列出的许可证与再分发条款。
 
 ## 🙏 致谢
 
-- [OpenAI Codex](https://github.com/openai/codex)：本机 Codex 运行时和
-  `app-server` 协议。
-- [Tauri](https://github.com/tauri-apps/tauri)：Windows 桌面外壳。
-- [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)：
-  流体运动参考。
-- [Canvas UI](https://github.com/DavidHDev/canvas-ui)：光学玻璃材质参考。
+- [OpenAI Codex](https://github.com/openai/codex)：本机运行时和 `app-server` 协议
+- [Tauri](https://github.com/tauri-apps/tauri)：Windows 桌面外壳
+- [WebGL Fluid Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)：流体运动参考
+- [Canvas UI](https://github.com/DavidHDev/canvas-ui)：光学玻璃材质参考
 
-完整归属与许可链接见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+[^codex-app-server]: OpenAI. “Codex `app-server`.” <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
 
-[^codex-app-server]: [OpenAI Codex `app-server` 官方文档](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md)
-[^tauri-prerequisites]: [Tauri 2 Windows 前置条件](https://v2.tauri.app/start/prerequisites/#windows)
+[^tauri-prerequisites]: Tauri. “Prerequisites: Windows.” <https://v2.tauri.app/start/prerequisites/#windows>
