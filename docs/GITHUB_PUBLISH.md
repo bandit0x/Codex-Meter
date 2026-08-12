@@ -8,7 +8,7 @@
 
 截至本指南编写时：
 
-- 本地仓库路径：`D:\bandit\projects\codex-credits-view`
+- 本地仓库路径：你克隆或保存 Codex Meter 的项目目录
 - 当前分支：`master`
 - 当前产品名：`Codex Meter`
 - 尚未配置 Git 远程仓库
@@ -55,7 +55,7 @@ GitHub 会阻止普通 Git 仓库中的单个文件超过 100 MiB；GitHub Relea
 打开 PowerShell：
 
 ```powershell
-Set-Location -LiteralPath 'D:\bandit\projects\codex-credits-view'
+Set-Location -LiteralPath '<你的 Codex Meter 项目目录>'
 ```
 
 ### 1. 确认工作树干净

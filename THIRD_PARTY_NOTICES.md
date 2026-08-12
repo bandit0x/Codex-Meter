@@ -1,5 +1,16 @@
 # Third-party notices
 
+## Impeccable
+
+This repository contains an Impeccable design-skill snapshot used only during
+development. Impeccable is Copyright (c) Paul Bakaus and is licensed under the
+Apache License 2.0. Its upstream `NOTICE.md` also attributes platform reference
+material derived from ehmo's `platform-design-skills`, licensed under MIT.
+
+- Source: <https://github.com/pbakaus/impeccable>
+- License: <https://github.com/pbakaus/impeccable/blob/main/LICENSE>
+- Notice: <https://github.com/pbakaus/impeccable/blob/main/NOTICE.md>
+
 ## OpenAI Codex CLI
 
 This project uses the official `@openai/codex` Windows x64 runtime as a local,

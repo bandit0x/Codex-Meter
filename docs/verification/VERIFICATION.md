@@ -59,7 +59,7 @@ including WebView2 component manifests.
 | WebView2-independent portable launch | Start the packaged executable with isolated AppData and inspect processes created after launch | Passed; the app created a 300x130 real window and 7 WebView2 processes from the bundled runtime, so the machine-wide WebView2 installation is not required. |
 | Real Tauri drag inertia | Drag the packaged window 81x45 px, then compare `GetWindowRect` after release | Passed: the window was displaced 94x52 by 25 ms, coasted another 61x34 by 220 ms, then another 16x9 by 900 ms. |
 | Real liquid post-release motion | Capture the packaged window before drag and at 25 ms, 220 ms and 900 ms; compare the weekly chamber at matching local coordinates | Passed on a real 88% weekly quota. The surface banks and rebounds across all four frames. Mean absolute RGB changes for the full weekly chamber were 9.232, 14.969 and 5.372; the lower body-only crop still changed by 1.350, 1.951 and 0.825, confirming continuing internal density movement rather than only a moving edge. |
-| Reference and license review | Review `D:/bandit/refs/ui-refs/webgl-fluid-simulation/script.js` and MIT license | Passed. The implementation adapts backward-advection, curl/vorticity and density-gradient-lighting concepts without copying the reference framebuffer solver; attribution is in `THIRD_PARTY_NOTICES.md`. |
+| Reference and license review | Review the local WebGL Fluid Simulation reference checkout and its MIT license | Passed. The implementation adapts backward-advection, curl/vorticity and density-gradient-lighting concepts without copying the reference framebuffer solver; attribution is in `THIRD_PARTY_NOTICES.md`. |
 
 ## Evidence
 
