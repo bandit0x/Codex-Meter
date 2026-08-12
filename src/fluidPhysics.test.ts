@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { FluidBodyMomentum, FluidSurface, linearLiquidLevel } from "./fluidPhysics";
+import {
+  ambientBreezeOffset,
+  FluidBodyMomentum,
+  FluidSurface,
+  linearLiquidLevel,
+} from "./fluidPhysics";
 
 describe("volumetric fluid surface", () => {
   it("maps remaining percentage linearly to the physical liquid level", () => {
@@ -7,6 +12,30 @@ describe("volumetric fluid surface", () => {
     expect(linearLiquidLevel(18, 10, 180)).toBeCloseTo(157.6);
     expect(linearLiquidLevel(95, 10, 180)).toBeCloseTo(19);
     expect(linearLiquidLevel(100, 10, 180)).toBe(10);
+  });
+
+  it("keeps the settled surface within a sub-pixel sea-breeze range", () => {
+    let largestIdleOffset = 0;
+    let largestActiveOffset = 0;
+
+    for (let frame = 0; frame <= 120; frame += 1) {
+      for (let sample = 0; sample <= 56; sample += 1) {
+        const x = sample / 56;
+        const timeMs = frame * 250;
+        largestIdleOffset = Math.max(
+          largestIdleOffset,
+          Math.abs(ambientBreezeOffset(x, timeMs, false)),
+        );
+        largestActiveOffset = Math.max(
+          largestActiveOffset,
+          Math.abs(ambientBreezeOffset(x, timeMs, true)),
+        );
+      }
+    }
+
+    expect(largestIdleOffset).toBeLessThan(0.42);
+    expect(largestIdleOffset).toBeGreaterThan(0.3);
+    expect(largestActiveOffset).toBeLessThan(0.11);
   });
 
   it("conserves represented volume while the free surface sloshes", () => {

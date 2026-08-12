@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import {
+  ambientBreezeOffset,
   FluidBodyMomentum,
   FluidSurface,
   type FluidMotionSample,
@@ -60,12 +61,16 @@ function traceSurface(
   x: number,
   width: number,
   baseY: number,
+  time: number,
+  active: boolean,
+  ambientMotion: boolean,
 ) {
   const last = nodes.length - 1;
   const meniscus = Array.from(nodes, (node, index) => {
     const normalized = index / last;
     const wallRise = -4.2 * (Math.exp(-normalized * 18) + Math.exp(-(1 - normalized) * 18));
-    return node + wallRise;
+    const breeze = ambientMotion ? ambientBreezeOffset(normalized, time, active) : 0;
+    return node + wallRise + breeze;
   });
   const meniscusMean = meniscus.reduce((sum, value) => sum + value, 0) / meniscus.length;
   context.moveTo(x, baseY + meniscus[0] - meniscusMean);
@@ -89,6 +94,7 @@ function drawReservoir(
   palette: Palette,
   time: number,
   active: boolean,
+  ambientMotion: boolean,
 ) {
   context.clearRect(0, 0, width, height);
   const insetX = 5;
@@ -111,7 +117,16 @@ function drawReservoir(
   context.fillRect(insetX, insetTop, innerWidth, innerHeight);
 
   context.beginPath();
-  traceSurface(context, surface.heights, insetX, innerWidth, baseY);
+  traceSurface(
+    context,
+    surface.heights,
+    insetX,
+    innerWidth,
+    baseY,
+    time,
+    active,
+    ambientMotion,
+  );
   context.lineTo(insetX + innerWidth, insetTop + innerHeight + 2);
   context.lineTo(insetX, insetTop + innerHeight + 2);
   context.closePath();
@@ -201,7 +216,16 @@ function drawReservoir(
 
   context.save();
   context.beginPath();
-  traceSurface(context, surface.heights, insetX, innerWidth, baseY);
+  traceSurface(
+    context,
+    surface.heights,
+    insetX,
+    innerWidth,
+    baseY,
+    time,
+    active,
+    ambientMotion,
+  );
   context.strokeStyle = palette.edge;
   context.lineWidth = 2.1;
   context.shadowColor = palette.edge;
@@ -293,6 +317,7 @@ export function FluidReservoir({
           agitation: bodyMomentum.agitation,
           timeMs: time,
           active: surface.isActive,
+          ambientMotion: !reducedMotion,
         });
         return;
       }
@@ -320,6 +345,7 @@ export function FluidReservoir({
         palette,
         time,
         surface.isActive,
+        !reducedMotion,
       );
     };
     drawRef.current = () => render();

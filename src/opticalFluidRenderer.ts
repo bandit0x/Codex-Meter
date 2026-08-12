@@ -1,3 +1,5 @@
+import { AMBIENT_BREEZE } from "./fluidPhysics";
+
 export const OPTICAL_SURFACE_NODE_COUNT = 56;
 
 export interface OpticalFluidFrame {
@@ -7,6 +9,7 @@ export interface OpticalFluidFrame {
   agitation: number;
   timeMs: number;
   active: boolean;
+  ambientMotion: boolean;
 }
 
 type Accent = "cyan" | "mint";
@@ -54,6 +57,7 @@ uniform float uPixelRatio;
 uniform float uRemaining;
 uniform float uTime;
 uniform float uActive;
+uniform float uAmbientMotion;
 uniform vec2 uFlowOffset;
 uniform float uAgitation;
 uniform float uSurface[${OPTICAL_SURFACE_NODE_COUNT}];
@@ -123,10 +127,17 @@ float freeSurfaceOffset(float normalizedX) {
     exp(-x * 18.0) + exp(-(1.0 - x) * 18.0)
   ) + 0.58;
   float ambientRipple = (
-    sin(x * 24.0 + uTime * 1.15)
-    + sin(x * 41.0 - uTime * 0.72) * 0.46
-    + sin(x * 13.0 - uTime * 0.41) * 0.38
-  ) * mix(1.85, 0.34, uActive);
+    sin(x * ${AMBIENT_BREEZE.primarySpatialFrequency.toFixed(1)}
+      + uTime * ${AMBIENT_BREEZE.primaryTemporalFrequency.toFixed(2)})
+      * ${AMBIENT_BREEZE.primaryWeight.toFixed(2)}
+    + sin(x * ${AMBIENT_BREEZE.secondarySpatialFrequency.toFixed(1)}
+      - uTime * ${AMBIENT_BREEZE.secondaryTemporalFrequency.toFixed(2)})
+      * ${AMBIENT_BREEZE.secondaryWeight.toFixed(2)}
+  ) * mix(
+    ${AMBIENT_BREEZE.idleStrength.toFixed(2)},
+    ${AMBIENT_BREEZE.activeStrength.toFixed(2)},
+    uActive
+  ) * uAmbientMotion;
   return sampleSurface(x) + wallRise + ambientRipple;
 }
 
@@ -396,6 +407,7 @@ export class OpticalFluidRenderer {
       remaining: requireUniform(gl, program, "uRemaining"),
       time: requireUniform(gl, program, "uTime"),
       active: requireUniform(gl, program, "uActive"),
+      ambientMotion: requireUniform(gl, program, "uAmbientMotion"),
       flowOffset: requireUniform(gl, program, "uFlowOffset"),
       agitation: requireUniform(gl, program, "uAgitation"),
       surface: requireUniform(gl, program, "uSurface[0]"),
@@ -429,6 +441,7 @@ export class OpticalFluidRenderer {
     gl.uniform1f(uniforms.remaining, frame.remainingPercent);
     gl.uniform1f(uniforms.time, frame.timeMs / 1_000);
     gl.uniform1f(uniforms.active, frame.active ? 1 : 0);
+    gl.uniform1f(uniforms.ambientMotion, frame.ambientMotion ? 1 : 0);
     gl.uniform2f(uniforms.flowOffset, frame.flowOffset[0], frame.flowOffset[1]);
     gl.uniform1f(uniforms.agitation, frame.agitation);
     gl.uniform1fv(uniforms.surface, frame.surface);
