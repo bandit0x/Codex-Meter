@@ -198,7 +198,13 @@ function FailedSurface({ diagnostic, onRetry }: { diagnostic: Diagnostic; onRetr
 
 function CollapsedSurface({ snapshot, onRestore }: { snapshot: CapacitySnapshot; onRestore: () => void }) {
   return (
-    <button className="collapsed-surface" type="button" onClick={onRestore} aria-label="恢复标准视图">
+    <button
+      className="collapsed-surface"
+      type="button"
+      data-window-drag-surface
+      onClick={onRestore}
+      aria-label="恢复标准视图"
+    >
       <span>
         <strong>{snapshot.fiveHour ? `${formatPercent(snapshot.fiveHour.remainingPercent)}%` : "—"}</strong>
         <i className="status-dot status-dot--cyan" aria-hidden="true" />
@@ -257,10 +263,15 @@ export function App({
     velocityY: 0,
     pendingDeltaX: 0,
     pendingDeltaY: 0,
+    startPointerX: 0,
+    startPointerY: 0,
+    moved: false,
+    fromCollapsedSurface: false,
   });
   const inertiaFrameRef = useRef<number | null>(null);
   const motionSequenceRef = useRef(0);
   const previousMotionVelocityRef = useRef({ x: 0, y: 0 });
+  const suppressCollapsedRestoreUntilRef = useRef(0);
 
   const load = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
@@ -339,20 +350,25 @@ export function App({
   const handleDragStart = useCallback((event: React.PointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
-    if (target.closest("button, input, [role='dialog']")) return;
+    const fromCollapsedSurface = target.closest("[data-window-drag-surface]") !== null;
+    if (target.closest("button, input, [role='dialog']") && !fromCollapsedSurface) return;
     event.preventDefault();
     stopWindowInertia();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     const drag = dragRef.current;
     drag.pointerId = event.pointerId;
     drag.ready = false;
     drag.lastPointerX = event.screenX;
     drag.lastPointerY = event.screenY;
+    drag.startPointerX = event.screenX;
+    drag.startPointerY = event.screenY;
     drag.lastTime = performance.now();
     drag.velocityX = 0;
     drag.velocityY = 0;
     drag.pendingDeltaX = 0;
     drag.pendingDeltaY = 0;
+    drag.moved = false;
+    drag.fromCollapsedSurface = fromCollapsedSurface;
     previousMotionVelocityRef.current = { x: 0, y: 0 };
     setIsWindowDragging(true);
 
@@ -382,6 +398,9 @@ export function App({
     const deltaY = event.screenY - drag.lastPointerY;
     const sampleX = deltaX / elapsed;
     const sampleY = deltaY / elapsed;
+    if (Math.hypot(event.screenX - drag.startPointerX, event.screenY - drag.startPointerY) >= 3) {
+      drag.moved = true;
+    }
     drag.velocityX = drag.velocityX * 0.38 + sampleX * 0.62;
     drag.velocityY = drag.velocityY * 0.38 + sampleY * 0.62;
     if (drag.ready) {
@@ -401,8 +420,11 @@ export function App({
   const handleDragEnd = useCallback((event: React.PointerEvent<HTMLElement>) => {
     const drag = dragRef.current;
     if (drag.pointerId !== event.pointerId) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+    if (drag.fromCollapsedSurface && drag.moved) {
+      suppressCollapsedRestoreUntilRef.current = performance.now() + 250;
     }
     drag.pointerId = -1;
     drag.ready = false;
@@ -465,6 +487,11 @@ export function App({
     [setWindowLayout],
   );
 
+  const restoreCollapsedLayout = useCallback(() => {
+    if (performance.now() < suppressCollapsedRestoreUntilRef.current) return;
+    changeLayout("compact");
+  }, [changeLayout]);
+
   const startClickThrough = useCallback(async () => {
     try {
       await enableClickThrough(CLICK_THROUGH_DURATION_MS);
@@ -505,7 +532,7 @@ export function App({
         <div className="drag-rail" aria-hidden="true" />
 
         {collapsed && snapshot ? (
-          <CollapsedSurface snapshot={snapshot} onRestore={() => changeLayout("compact")} />
+          <CollapsedSurface snapshot={snapshot} onRestore={restoreCollapsedLayout} />
         ) : (
           <>
             {view.kind === "loading" && <LoadingSurface />}

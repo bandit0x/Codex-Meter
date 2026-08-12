@@ -113,6 +113,51 @@ describe("Codex capacity overlay", () => {
     expect(layouts[layouts.length - 1]).toBe("compact");
   });
 
+  it("drags the native window from the collapsed surface", async () => {
+    const user = userEvent.setup();
+    const positions: Array<{ x: number; y: number }> = [];
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => healthySnapshot}
+        getWindowPosition={async () => ({ x: 100, y: 200 })}
+        setWindowPosition={async (position) => {
+          positions.push(position);
+        }}
+      />,
+    );
+
+    await screen.findByText("76%", { exact: false });
+    await user.click(screen.getByRole("button", { name: "展开重置详情" }));
+    await user.click(screen.getByRole("button", { name: "收起为窄条" }));
+
+    const frame = container.querySelector(".app-frame") as HTMLElement;
+    const collapsedSurface = screen.getByRole("button", { name: "恢复标准视图" });
+    frame.setPointerCapture = () => undefined;
+    frame.hasPointerCapture = () => false;
+
+    fireEvent.pointerDown(collapsedSurface, {
+      button: 0,
+      pointerId: 17,
+      screenX: 20,
+      screenY: 30,
+    });
+    fireEvent.pointerMove(collapsedSurface, {
+      pointerId: 17,
+      screenX: 48,
+      screenY: 44,
+    });
+
+    await waitFor(() => expect(positions[positions.length - 1]).toEqual({ x: 128, y: 214 }));
+    fireEvent.pointerUp(collapsedSurface, {
+      pointerId: 17,
+      screenX: 48,
+      screenY: 44,
+    });
+    fireEvent.click(collapsedSurface);
+    expect(frame).toHaveClass("app-frame--collapsed");
+  });
+
   it("moves the native window while the reservoir surface is dragged", async () => {
     const positions: Array<{ x: number; y: number }> = [];
     const { container } = render(
