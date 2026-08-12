@@ -2,9 +2,7 @@ node_modules/
 .npm-cache/
 .cargo-cache/
 .playwright-cli/
-.agents/skills/impeccable/
-.impeccable/
-.scratch/tauri-scaffold-temp/
+.scratch/
 dist/
 target/
 src-tauri/target/
@@ -14,9 +12,6 @@ test-results/
 playwright-report/
 *.log
 release/
-.scratch/*-profile/
-.scratch/tools/
-.scratch/verification/
 
 # Local secrets and signing material
 .env

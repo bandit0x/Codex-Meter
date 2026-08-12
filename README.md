@@ -10,10 +10,9 @@ Codex `app-server` 读取只读配额数据，以同等视觉优先级展示 5 �
 
 > [!IMPORTANT]
 > 本项目是非官方社区工具，与 OpenAI 或 ChatGPT 无隶属、赞助或背书关系。
-> 当前仓库尚未添加项目级 `LICENSE`；在选择并提交许可证前，它可以公开查看，
-> 但不应被描述为已获得开源许可。
 
 ![Codex Meter 健康状态演示，画面使用测试数据](docs/verification/screenshots/v8-half-healthy.png)
+_Codex Meter 健康状态，画面使用测试数据。_
 
 ## ✨ 功能
 
@@ -136,52 +135,30 @@ codex-meter/
 ├── src/                    # React 界面、WebGL 材质和前端测试
 ├── src-tauri/              # Rust 后端、Tauri 配置和应用图标
 ├── scripts/                # WebView2 下载、便携打包与品牌验证
-├── docs/verification/      # 验证记录与证据
+├── docs/adr/               # 关键架构决策
+├── docs/verification/      # 无隐私数据的界面截图
 ├── fixtures/               # 测试夹具
-├── PRODUCT.md              # 产品合同与边界
-├── DESIGN.md               # 已批准视觉和交互规范
+├── LICENSE                 # MIT License
 └── THIRD_PARTY_NOTICES.md  # 第三方来源与许可说明
 ```
 
 ## ✅ 验证状态
 
-最近一次完整记录的状态为 `Acceptance pending`：自动检查通过，仍待目标用户
-环境验收。记录覆盖 React 状态与交互测试、Rust 集成测试、真实便携包启动、
-无控制台黑框、无任务栏按钮、关闭到托盘、窗口拖动惯性、液体释放后运动和
-五种视觉状态。
-
-详细命令、环境、实际结果、截图和已知限制见
-[`docs/verification/VERIFICATION.md`](docs/verification/VERIFICATION.md)。历史记录
-不替代当前提交上的复测。
+当前源码已通过 19 项前端测试、TypeScript 类型检查、Vite 生产构建、Rust
+Clippy、14 项 Rust 测试和 Tauri 发布构建。界面证据仅保留不含桌面、账号或
+真实配额信息的五种确定性状态截图。
 
 ## 🤝 参与贡献
 
-提交 Issue 或 Pull Request 前，请先阅读：
-
-- [`AGENTS.md`](AGENTS.md)：项目开发和真实交付纪律。
-- [`PRODUCT.md`](PRODUCT.md)：首期范围、用户旅程与明确不做的内容。
-- [`DESIGN.md`](DESIGN.md)：液态玻璃、体积液体和动效合同。
-- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)：第三方来源与许可边界。
-
-修复回归时请提供可重复步骤；涉及 UI 的修改必须先更新设计图并获批，再在
-真实 Tauri/WebView2 产物中截图对照。请勿在公开 Issue 中提交令牌、日志、
-账号截图或其他敏感数据。
-
-## 🗺️ 当前范围
-
-首期明确不包含：
-
-- 开机自动启动。
-- 配额历史、分析图表或通知系统。
-- 自动兑换完整重置次数。
-- 安装器、自动更新器和代码签名。
-- macOS、Linux 或其他 AI 提供商支持。
+欢迎提交 Issue 和 Pull Request。请为问题提供可重复步骤，并在提交前运行本
+README 中的前端与 Rust 检查。涉及界面的修改应附上真实 Tauri/WebView2
+截图。请勿在公开 Issue 中提交令牌、日志、账号截图或其他敏感数据。第三方
+来源和再分发边界见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 
 ## 📜 许可证
 
-当前仓库没有项目级 `LICENSE`，因此尚未完成开源授权。公开发布前，项目所有者
-需要选择并提交许可证；`THIRD_PARTY_NOTICES.md` 仅记录第三方条款，不能替代
-项目自身许可证。
+本项目采用 [MIT License](LICENSE)。第三方组件和运行时仍分别遵循
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 中列出的许可与再分发条款。
 
 ## 🙏 致谢
 
@@ -193,12 +170,6 @@ codex-meter/
 - [Canvas UI](https://github.com/DavidHDev/canvas-ui)：光学玻璃材质参考。
 
 完整归属与许可链接见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
-
-## 📚 发布指南
-
-仓库当前未配置 Git 远程地址，本项目也不会自动上传源码。清理历史、选择项目
-许可证并完成本地复测后，由项目所有者按照
-[`docs/GITHUB_PUBLISH.md`](docs/GITHUB_PUBLISH.md) 手动创建和推送 GitHub 仓库。
 
 [^codex-app-server]: [OpenAI Codex `app-server` 官方文档](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md)
 [^tauri-prerequisites]: [Tauri 2 Windows 前置条件](https://v2.tauri.app/start/prerequisites/#windows)
