@@ -223,9 +223,10 @@ mod webview2_tests {
     }
 
     #[test]
-    fn main_window_is_configured_without_a_taskbar_button() {
+    fn distribution_identity_and_taskbar_contract_are_stable() {
         let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json"))
             .expect("valid tauri configuration");
+        assert_eq!(config["identifier"], "io.github.bandit.codexmeter");
         assert_eq!(config["app"]["windows"][0]["skipTaskbar"], true);
     }
 }

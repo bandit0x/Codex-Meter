@@ -48,10 +48,10 @@ The approved V4 composition is **Volumetric Fluid Lens**, confirmed by the user 
 
 ## Approval references
 
-- Final composition: `.impeccable/mocks/composition/split-lens-bar.png`
-- State coverage: `.impeccable/mocks/states/twin-cells-state-board.png`
-- V4 material: `.impeccable/mocks/rework-v4/v4-volumetric-material.png`
-- V4 inertia storyboard: `.impeccable/mocks/rework-v4/v4-fluid-inertia-storyboard-v2.png`
-- Brand mark: `.impeccable/mocks/branding-v4/codex-meter-interlace-approval.png`
+- Final compact state: `docs/verification/screenshots/v8-half-healthy.png`.
+- State coverage: the five `v8-half-*` screenshots retained under
+  `docs/verification/screenshots/`.
+- Brand mark: `src-tauri/icons/icon.png` and its generated Windows icon sizes.
+- Motion contract: `src/fluidPhysics.ts` and `src/fluidPhysics.test.ts`.
 - V4 approved by the user on 2026-08-11. Implementation must be validated in the real WebView2/Tauri product rather than by a static SVG.
 - Codex Meter name and sevenfold interlace mark approved by the user on 2026-08-12.

@@ -3,6 +3,7 @@ node_modules/
 .cargo-cache/
 .playwright-cli/
 .agents/skills/impeccable/
+.impeccable/
 .scratch/tauri-scaffold-temp/
 dist/
 target/
@@ -12,7 +13,6 @@ coverage/
 test-results/
 playwright-report/
 *.log
-.impeccable/questions/
 release/
 .scratch/*-profile/
 .scratch/tools/

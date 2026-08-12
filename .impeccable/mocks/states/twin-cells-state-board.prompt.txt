@@ -1,9 +1,0 @@
-Use case: precise-object-edit
-Asset type: high-fidelity Windows 11 desktop UI state board
-Input images: Image 1 is the edit target and authoritative source.
-Primary request: Change only the panel labeled "4  FAILED" in the lower-left. Replace the duplicated left-and-right error contents with one single shared liquid-glass error surface spanning the full width of the two-cell shell.
-Exact edit inside "4  FAILED": keep the outer dual-cell floating-window silhouette, but use one calm shared error presentation centered across both cells. Show exactly one coral error indicator, exactly one headline "无法读取 Codex 配额", exactly one supporting line "检查 Codex 是否已登录 · 诊断码 CRV-201", and exactly one button "重试". The three text strings and the button must each appear once only. The shared surface may retain an extremely faint central optical seam as a subtle memory of the two chambers, but the seam must not divide or duplicate the content.
-Invariants: preserve the entire canvas, deep navy background, frame positions, scale, spacing, typography, liquid-glass material, cyan/mint palette, and all content outside "4  FAILED" unchanged. Keep "1  COMPACT", "2  EXPANDED · LOADING", "3  HEALTHY", and "5  COLLAPSED" pixel-for-pixel unchanged. Preserve the "4  FAILED" heading, outer frame dimensions, rounded geometry, border treatment, and coral error accent.
-Typography: render the Chinese strings and CRV-201 clearly and verbatim; no extra text.
-Constraints: edit only the interior of frame 4; no new logos, no taskbar, no extra cards, no watermark, no duplicate copy or duplicate button.
-Avoid: changing any other frame, changing numerical values, changing layout, purple gradients, gaming HUD styling, illegible small text.

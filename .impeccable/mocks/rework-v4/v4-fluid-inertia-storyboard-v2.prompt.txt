@@ -1,9 +1,0 @@
-Precise correction to the referenced four-frame motion storyboard. Preserve the entire composition, four labels, thick optical glass material, dark code-editor backdrop, typography, 18% left values, 95% right values, and four distinct motion phases.
-Change only the fluid-volume physics:
-- In every frame, the right WEEK chamber must contain exactly 95% liquid by area/volume. Its free surface must remain within the top 5–8% of the chamber. During drag and release, show inertia as a small moving air gap, a shallow meniscus tilt near the ceiling, strong internal velocity curls, caustic streaks, and a recirculation vortex—not by lowering the liquid to 70–80%.
-- In every frame, the left 5 HOUR chamber must preserve an average of exactly 18% liquid. It may climb one wall and fall on the other, but the average cross-sectional area stays 18%.
-- Frame 1 DRAG: left shallow pool rises on left; right nearly-full chamber has only a thin wedge-shaped air pocket shifting right.
-- Frame 2 RELEASE: both volumes conserved while internal flow crosses level.
-- Frame 3 SHELL STOP: left liquid surges right; right chamber stays 95% full and shows a compact internal vortex below the near-top meniscus.
-- Frame 4 LIQUID SETTLE: both volumes return toward level with smaller waves.
-Keep liquid transparent and volumetric with meniscus, refraction, Beer-Lambert absorption, caustics and sparse bubbles. Do not create flat gradients, large empty zones in the 95% chamber, extra text, logos, watermark, or gray rectangular chrome.

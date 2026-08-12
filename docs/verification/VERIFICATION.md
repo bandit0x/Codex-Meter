@@ -45,12 +45,12 @@ including WebView2 component manifests.
 | Journey or boundary | Command / action | Actual result |
 | --- | --- | --- |
 | Approved brand geometry | Render the committed SVG and generate all Tauri icon targets with `npx tauri icon` | Passed: application PNG, Windows ICO, ICNS and Appx sizes use the approved sevenfold cyan/mint interlace with two red center points. |
+| Distribution identifier | Parse `tauri.conf.json` in the Rust contract test; run `npm.cmd run tauri:build` | Passed: the stable application identifier is `io.github.bandit.codexmeter`, and Tauri produced the release executable. |
 | Executable identity | Inspect `Codex Meter.exe` version resources and extract its associated icon | Passed: `ProductName` and `FileDescription` both equal `Codex Meter`; the extracted icon matches the approved mark. |
 | Packaged brand smoke test | `scripts/verify-portable-brand.ps1` against the final portable directory | Passed: the real window title is `Codex Meter`, compact size is 300x130, zero matching taskbar buttons exist, and close hides the overlay while the process remains alive. |
 | React state and interaction | `npm.cmd test -- --run` | Passed: 19 tests across 4 files, including exact half-scale layout sizes, linear quota-to-volume mapping, surface-volume conservation, independent chambers, body-momentum decay, state rendering and pointer drag behavior. |
 | Type and production frontend | `npm.cmd run typecheck`; production build inside `npm.cmd run tauri:build` | Passed; Vite emitted the production assets. |
 | Rust integration | `cargo clippy --all-targets -- -D warnings`; `cargo test` | Passed; Clippy is clean and all 14 Rust tests passed, including the no-taskbar configuration contract. The localized MSVC import-library linker notice is informational. |
-| Historical UI mechanical scan | Run the Impeccable detector from the developer's local skill installation | Passed with zero findings. The development tool is not vendored in this repository. |
 | Five visual states | Deterministic Chromium/WebGL2 fixtures at the physical target sizes | Passed: healthy, loading, failed, expanded and collapsed screenshots use 300x130, 300x160 or 260x48 crops. No liquid grid or mid-volume hard lines remain. |
 | Release build | `npm.cmd run tauri:build`; `scripts/package-portable.ps1` | Passed; the reproducible manifest records source commit `e8efcaf`, the pinned Codex runtime and WebView2 Fixed Runtime. |
 | Quiet child processes | Monitor every visible top-level window belonging to the packaged app and its descendants for 65 seconds | Passed across initial load and the 60-second automatic refresh: zero `ConsoleWindowClass` windows were created. |
@@ -61,22 +61,17 @@ including WebView2 component manifests.
 | Real liquid post-release motion | Capture the packaged window before drag and at 25 ms, 220 ms and 900 ms; compare the weekly chamber at matching local coordinates | Passed on a real 88% weekly quota. The surface banks and rebounds across all four frames. Mean absolute RGB changes for the full weekly chamber were 9.232, 14.969 and 5.372; the lower body-only crop still changed by 1.350, 1.951 and 0.825, confirming continuing internal density movement rather than only a moving edge. |
 | Reference and license review | Review the local WebGL Fluid Simulation reference checkout and its MIT license | Passed. The implementation adapts backward-advection, curl/vorticity and density-gradient-lighting concepts without copying the reference framebuffer solver; attribution is in `THIRD_PARTY_NOTICES.md`. |
 
-## Evidence
+## Public evidence
 
-- [Approved Codex Meter icon board](../../.impeccable/mocks/branding-v4/codex-meter-interlace-approval.png)
-- [Icon extracted from the packaged EXE](screenshots/codex-meter-exe-icon.png)
-- [Real packaged Codex Meter window](screenshots/codex-meter-real-window.png)
-- [V8 real Tauri pre-drag frame](screenshots/v8-half-tauri-before.png)
-- [V8 real Tauri release frame at 25 ms](screenshots/v8-half-tauri-motion-25ms.png)
-- [V8 real Tauri release frame at 220 ms](screenshots/v8-half-tauri-motion-220ms.png)
-- [V8 real Tauri release frame at 900 ms](screenshots/v8-half-tauri-motion-900ms.png)
+Only deterministic screenshots without desktop, account, or real quota context are
+kept in the public source tree. Real-environment captures used during acceptance
+were intentionally excluded from distribution.
+
 - [V8 deterministic healthy state](screenshots/v8-half-healthy.png)
 - [V8 deterministic loading state](screenshots/v8-half-loading.png)
 - [V8 deterministic failed state](screenshots/v8-half-failed.png)
 - [V8 deterministic expanded state](screenshots/v8-half-expanded.png)
 - [V8 deterministic collapsed state](screenshots/v8-half-collapsed.png)
-- [Approved half-scale contract](../../.impeccable/mocks/rework-v5/half-scale-contract.png)
-- [Approved V4 material](../../.impeccable/mocks/rework-v4/v4-volumetric-material.png)
 
 ## Known limitations
 
