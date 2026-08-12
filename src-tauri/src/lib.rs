@@ -3,7 +3,16 @@ mod preferences;
 
 use capacity::{CapacityService, CapacitySnapshot, Diagnostic};
 use preferences::{restore_window_position, DisplayPreferences, PreferencesStore};
-use tauri::{Manager, State, WebviewWindow, WindowEvent};
+use tauri::{
+    image::Image,
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Manager, State, WebviewWindow, WindowEvent,
+};
+
+const TRAY_SHOW_ID: &str = "show";
+const TRAY_HIDE_ID: &str = "hide";
+const TRAY_QUIT_ID: &str = "quit";
 
 #[cfg(target_os = "windows")]
 const FIXED_WEBVIEW2_DIRECTORY: &str = "webview2-runtime";
@@ -27,6 +36,68 @@ fn configure_bundled_webview2_runtime() {
     if let Some(runtime) = bundled_webview2_runtime(&executable) {
         std::env::set_var("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", runtime);
     }
+}
+
+fn show_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn hide_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+}
+
+fn toggle_main_window(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    if window.is_visible().unwrap_or(false) {
+        let _ = window.hide();
+    } else {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
+    let show = MenuItem::with_id(app, TRAY_SHOW_ID, "显示窗口", true, None::<&str>)?;
+    let hide = MenuItem::with_id(app, TRAY_HIDE_ID, "隐藏窗口", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, TRAY_QUIT_ID, "退出", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
+    let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
+
+    TrayIconBuilder::with_id("capacity")
+        .icon(icon)
+        .tooltip("Codex Capacity")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| {
+            if event.id() == TRAY_SHOW_ID {
+                show_main_window(app);
+            } else if event.id() == TRAY_HIDE_ID {
+                hide_main_window(app);
+            } else if event.id() == TRAY_QUIT_ID {
+                app.exit(0);
+            }
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                toggle_main_window(tray.app_handle());
+            }
+        })
+        .build(app)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -80,22 +151,28 @@ pub fn run() {
     #[cfg(target_os = "windows")]
     configure_bundled_webview2_runtime();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(CapacityService::from_environment())
         .setup(|app| {
             let store = PreferencesStore::new(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 restore_window_position(&window, &store);
             }
+            setup_tray(app)?;
             app.manage(store);
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::Moved(position) = event {
+        .on_window_event(|window, event| match event {
+            WindowEvent::Moved(position) => {
                 let _ = window
                     .state::<PreferencesStore>()
                     .update_position(*position);
             }
+            WindowEvent::CloseRequested { api, .. } => {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             read_capacity_snapshot,
@@ -103,8 +180,17 @@ pub fn run() {
             save_display_preferences,
             enable_temporary_click_through
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Codex Capacity");
+        .build(tauri::generate_context!())
+        .expect("failed to build Codex Capacity");
+
+    app.run(|_, event| {
+        if let tauri::RunEvent::ExitRequested {
+            code: None, api, ..
+        } = event
+        {
+            api.prevent_exit();
+        }
+    });
 }
 
 #[cfg(all(test, target_os = "windows"))]
@@ -134,5 +220,12 @@ mod webview2_tests {
         assert_eq!(bundled_webview2_runtime(&executable), Some(runtime));
 
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn main_window_is_configured_without_a_taskbar_button() {
+        let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json"))
+            .expect("valid tauri configuration");
+        assert_eq!(config["app"]["windows"][0]["skipTaskbar"], true);
     }
 }

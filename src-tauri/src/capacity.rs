@@ -11,6 +11,9 @@ use tokio::{
     time::timeout,
 };
 
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Debug, Clone, Serialize)]
@@ -198,17 +201,20 @@ impl CapacityService {
     }
 
     pub async fn read_snapshot(&self) -> Result<CapacitySnapshot, Diagnostic> {
-        let mut child = Command::new(&self.command.executable)
+        let mut command = Command::new(&self.command.executable);
+        command
             .args(&self.command.args)
             .envs(self.command.environment.iter().cloned())
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-            .map_err(|error| {
-                Diagnostic::new("CRV-101", "无法启动配额数据进程").with_detail(error.to_string())
-            })?;
+            .kill_on_drop(true);
+        #[cfg(target_os = "windows")]
+        command.creation_flags(CREATE_NO_WINDOW);
+
+        let mut child = command.spawn().map_err(|error| {
+            Diagnostic::new("CRV-101", "无法启动配额数据进程").with_detail(error.to_string())
+        })?;
 
         let mut stdin = child
             .stdin

@@ -11,9 +11,13 @@ five-hour and weekly Remaining Capacity with equal visual priority.
 3. Codex must already be authenticated for the same Windows user.
 4. Drag the top edge to move the overlay. Click the arrow for reset details,
    refresh, a bounded 10-second click-through mode, and display settings.
+5. The overlay does not create a taskbar button. Use the Codex Capacity icon in
+   the Windows notification area to show, hide, or exit the app. A left click
+   toggles the overlay; a right click opens the tray menu.
 
 The app does not register a Run key, scheduled task, service, or other startup
-entry. Close it normally and launch it manually when needed.
+entry. Closing the overlay hides it to the tray; choose **退出** from the tray
+menu to stop it completely. Launch it manually when needed.
 
 ## Data and safety boundary
 
@@ -47,3 +51,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\fetch-webview2-f
 
 See `PRODUCT.md`, `DESIGN.md`, and `THIRD_PARTY_NOTICES.md` for the approved
 scope, visual direction, and runtime license notice.
+
+## Publish to your GitHub account
+
+The repository is prepared for local-to-GitHub publication: generated builds,
+downloaded runtimes, local profiles, caches, logs, and test output are ignored.
+No remote is configured and no source has been uploaded by this project.
+
+See [`docs/GITHUB_PUBLISH.md`](docs/GITHUB_PUBLISH.md) for the final local
+checks and the commands you can run yourself after choosing repository
+visibility and a license policy.

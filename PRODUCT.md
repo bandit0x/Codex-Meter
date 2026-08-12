@@ -26,6 +26,8 @@ This is a focused, personal Codex companion rather than a multi-provider usage d
 
 - The user manually launches the app when needed; it must not start with Windows.
 - The compact floating window is draggable and always on top.
+- The overlay has no taskbar button. A notification-area icon remains available
+  for showing, hiding, and fully exiting the app; closing the overlay hides it.
 - Left click expands details; right click opens settings.
 - Mouse click-through can be toggled.
 - Codex Desktop or Codex CLI is already installed and authenticated for the same Windows user.
