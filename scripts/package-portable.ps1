@@ -8,9 +8,14 @@ $ErrorActionPreference = "Stop"
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $sourceExe = Join-Path $projectRoot "src-tauri\target\release\codex-credits-view.exe"
 $sourceRuntime = Join-Path $projectRoot "node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe"
-$outputRoot = Join-Path $projectRoot "release\CodexMeter-$Version-win-x64"
+$releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot "release"))
+$outputRoot = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot "CodexMeter-$Version-win-x64"))
 $runtimeDir = Join-Path $outputRoot "codex-runtime\bin"
 $webview2Dir = Join-Path $outputRoot "webview2-runtime"
+
+if (-not $outputRoot.StartsWith($releaseRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing to package outside the release directory: $outputRoot"
+}
 
 if ([string]::IsNullOrWhiteSpace($WebView2RuntimePath)) {
     $WebView2RuntimePath = Get-ChildItem -LiteralPath (Join-Path $projectRoot ".scratch\tools\webview2-fixed") -Directory -ErrorAction SilentlyContinue |
@@ -36,10 +41,10 @@ if ($webviewSignature.Status -ne "Valid" -or $webviewSignature.SignerCertificate
     throw "WebView2 runtime signature is not a valid Microsoft signature."
 }
 
-[System.IO.Directory]::CreateDirectory($runtimeDir) | Out-Null
-if (Test-Path -LiteralPath $webview2Dir) {
-    Remove-Item -LiteralPath $webview2Dir -Recurse -Force
+if (Test-Path -LiteralPath $outputRoot) {
+    Remove-Item -LiteralPath $outputRoot -Recurse -Force
 }
+[System.IO.Directory]::CreateDirectory($runtimeDir) | Out-Null
 [System.IO.Directory]::CreateDirectory($webview2Dir) | Out-Null
 Copy-Item -LiteralPath $sourceExe -Destination (Join-Path $outputRoot "Codex Meter.exe") -Force
 Copy-Item -LiteralPath $sourceRuntime -Destination (Join-Path $runtimeDir "codex.exe") -Force
@@ -48,7 +53,6 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $output
 Copy-Item -LiteralPath (Join-Path $projectRoot "THIRD_PARTY_NOTICES.md") -Destination $outputRoot -Force
 
 $files = Get-ChildItem -LiteralPath $outputRoot -File -Recurse |
-    Where-Object { $_.Name -ne "manifest.json" } |
     Sort-Object FullName
 $manifest = [ordered]@{
     product = "Codex Meter"
