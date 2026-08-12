@@ -234,7 +234,7 @@ impl CapacityService {
                 "params": {
                     "clientInfo": {
                         "name": "codex_credits_view",
-                        "title": "Codex Capacity",
+                        "title": "Codex Meter",
                         "version": env!("CARGO_PKG_VERSION")
                     }
                 }

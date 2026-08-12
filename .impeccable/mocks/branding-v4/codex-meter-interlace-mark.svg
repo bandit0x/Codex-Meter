@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Codex Meter — Sevenfold Interlace</title>
+  <desc id="desc">Seven deeply curved open ribbons weave over and under one another around a warped telemetry aperture.</desc>
+  <defs>
+    <linearGradient id="flow" x1="44" y1="34" x2="220" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#50D8FF"/><stop offset="0.52" stop-color="#5DE4EA"/><stop offset="1" stop-color="#74EFD2"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#E2FCFF" stop-opacity="0.7"/><stop offset="1" stop-color="#E2FCFF" stop-opacity="0"/></linearGradient>
+    <filter id="depth" x="-25%" y="-25%" width="150%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#010A10" flood-opacity="0.82"/></filter>
+    <path id="hook" d="M164 166C199 154 222 123 219 88C216 54 189 31 157 34C126 37 103 64 104 96C105 122 119 143 141 155"/>
+    <path id="bridge" d="M111 76C104 98 110 123 128 141"/>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#depth)">
+    <g stroke="#021019" stroke-width="31"><use href="#hook"/><use href="#hook" transform="rotate(51.4286 128 128)"/><use href="#hook" transform="rotate(102.8571 128 128)"/><use href="#hook" transform="rotate(154.2857 128 128)"/><use href="#hook" transform="rotate(205.7143 128 128)"/><use href="#hook" transform="rotate(257.1429 128 128)"/><use href="#hook" transform="rotate(308.5714 128 128)"/></g>
+    <g stroke="url(#flow)" stroke-width="21"><use href="#hook"/><use href="#hook" transform="rotate(51.4286 128 128)"/><use href="#hook" transform="rotate(102.8571 128 128)"/><use href="#hook" transform="rotate(154.2857 128 128)"/><use href="#hook" transform="rotate(205.7143 128 128)"/><use href="#hook" transform="rotate(257.1429 128 128)"/><use href="#hook" transform="rotate(308.5714 128 128)"/></g>
+    <g stroke="#021019" stroke-width="31"><use href="#bridge"/><use href="#bridge" transform="rotate(102.8571 128 128)"/><use href="#bridge" transform="rotate(205.7143 128 128)"/><use href="#bridge" transform="rotate(308.5714 128 128)"/></g>
+    <g stroke="url(#flow)" stroke-width="21"><use href="#bridge"/><use href="#bridge" transform="rotate(102.8571 128 128)"/><use href="#bridge" transform="rotate(205.7143 128 128)"/><use href="#bridge" transform="rotate(308.5714 128 128)"/></g>
+    <g stroke="url(#shine)" stroke-width="2.6" opacity="0.9"><use href="#hook"/><use href="#hook" transform="rotate(51.4286 128 128)"/><use href="#hook" transform="rotate(102.8571 128 128)"/><use href="#hook" transform="rotate(154.2857 128 128)"/><use href="#hook" transform="rotate(205.7143 128 128)"/><use href="#hook" transform="rotate(257.1429 128 128)"/><use href="#hook" transform="rotate(308.5714 128 128)"/></g>
+  </g>
+  <path d="M103 112C113 92 137 87 155 100C173 113 174 138 159 155C143 171 118 169 103 153C93 142 94 126 103 112Z" fill="#07131E"/>
+  <path d="M107 124C113 106 130 98 147 104C160 109 168 123 165 137" fill="none" stroke="#DFF9FF" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M116 149C111 136 114 119 123 111C129 106 137 110 137 120C137 133 129 147 122 152C119 154 117 153 116 149Z" fill="#FF5C62"/>
+  <path d="M144 148C140 136 143 114 151 105C157 99 165 104 165 115C165 128 157 143 150 150C147 153 145 152 144 148Z" fill="#FF5C62"/>
+</svg>

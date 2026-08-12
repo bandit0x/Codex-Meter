@@ -74,7 +74,7 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id("capacity")
         .icon(icon)
-        .tooltip("Codex Capacity")
+        .tooltip("Codex Meter")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
@@ -181,7 +181,7 @@ pub fn run() {
             enable_temporary_click_through
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build Codex Capacity");
+        .expect("failed to build Codex Meter");
 
     app.run(|_, event| {
         if let tauri::RunEvent::ExitRequested {
@@ -208,7 +208,7 @@ mod webview2_tests {
             .expect("clock")
             .as_nanos();
         let root = std::env::temp_dir().join(format!("crv-webview2-{unique}"));
-        let executable = root.join("Codex Capacity.exe");
+        let executable = root.join("Codex Meter.exe");
         let runtime = root.join(FIXED_WEBVIEW2_DIRECTORY);
         fs::create_dir_all(&runtime).expect("runtime directory");
         fs::write(&executable, []).expect("portable executable fixture");

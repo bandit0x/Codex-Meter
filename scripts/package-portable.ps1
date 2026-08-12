@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $sourceExe = Join-Path $projectRoot "src-tauri\target\release\codex-credits-view.exe"
 $sourceRuntime = Join-Path $projectRoot "node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe"
-$outputRoot = Join-Path $projectRoot "release\CodexCapacity-$Version-win-x64"
+$outputRoot = Join-Path $projectRoot "release\CodexMeter-$Version-win-x64"
 $runtimeDir = Join-Path $outputRoot "codex-runtime\bin"
 $webview2Dir = Join-Path $outputRoot "webview2-runtime"
 
@@ -41,7 +41,7 @@ if (Test-Path -LiteralPath $webview2Dir) {
     Remove-Item -LiteralPath $webview2Dir -Recurse -Force
 }
 [System.IO.Directory]::CreateDirectory($webview2Dir) | Out-Null
-Copy-Item -LiteralPath $sourceExe -Destination (Join-Path $outputRoot "Codex Capacity.exe") -Force
+Copy-Item -LiteralPath $sourceExe -Destination (Join-Path $outputRoot "Codex Meter.exe") -Force
 Copy-Item -LiteralPath $sourceRuntime -Destination (Join-Path $runtimeDir "codex.exe") -Force
 Copy-Item -Path (Join-Path $WebView2RuntimePath "*") -Destination $webview2Dir -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $outputRoot -Force
@@ -51,7 +51,7 @@ $files = Get-ChildItem -LiteralPath $outputRoot -File -Recurse |
     Where-Object { $_.Name -ne "manifest.json" } |
     Sort-Object FullName
 $manifest = [ordered]@{
-    product = "Codex Capacity"
+    product = "Codex Meter"
     version = $Version
     platform = "windows-x64"
     webview2Mode = "fixed-runtime"

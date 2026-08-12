@@ -1,17 +1,17 @@
-# Codex Capacity
+# Codex Meter
 
-Codex Capacity is a manually launched Windows 11 floating overlay for a single
+Codex Meter is a manually launched Windows 11 floating overlay for a single
 Codex user. It reads the official local Codex `app-server` protocol and shows
 five-hour and weekly Remaining Capacity with equal visual priority.
 
 ## Run the portable build
 
-1. Keep `Codex Capacity.exe`, `codex-runtime`, and `webview2-runtime` together.
-2. Double-click `Codex Capacity.exe`.
+1. Keep `Codex Meter.exe`, `codex-runtime`, and `webview2-runtime` together.
+2. Double-click `Codex Meter.exe`.
 3. Codex must already be authenticated for the same Windows user.
 4. Drag the top edge to move the overlay. Click the arrow for reset details,
    refresh, a bounded 10-second click-through mode, and display settings.
-5. The overlay does not create a taskbar button. Use the Codex Capacity icon in
+5. The overlay does not create a taskbar button. Use the Codex Meter icon in
    the Windows notification area to show, hide, or exit the app. A left click
    toggles the overlay; a right click opens the tray menu.
 

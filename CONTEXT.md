@@ -1,4 +1,4 @@
-# Codex Capacity Monitor
+# Codex Meter
 
 A personal Windows utility that presents Codex account capacity and reset availability while the user works.
 

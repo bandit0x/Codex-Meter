@@ -45,14 +45,14 @@ This is a focused, personal Codex companion rather than a multi-provider usage d
 
 ## Brand Commitments
 
-The interface must use a liquid-glass material language while remaining quiet enough to sit above a coding workspace. The glass effect must preserve legibility and state clarity rather than becoming a neon gaming HUD or a generic stack of translucent cards. The project follows a comp-led workflow: saved design drawings must be approved before implementation and later serve as the visual acceptance reference. No product name, logo, palette, or typography has been confirmed yet.
+The product name is **Codex Meter**. Its approved mark is a sevenfold interlace: seven cyan-to-mint curved telemetry ribbons weave around a warped observation aperture with two red quota points. It must remain structurally distinct from OpenAI and ChatGPT marks: no sixfold knot, central hexagonal negative space, copied outline, or implication of official affiliation. The interface uses a liquid-glass material language while remaining quiet enough to sit above a coding workspace. The glass effect must preserve legibility and state clarity rather than becoming a neon gaming HUD or a generic stack of translucent cards. Saved design drawings are approved before implementation and later serve as the visual acceptance reference.
 
 ## Evidence on Hand
 
 - The running Microsoft Store Codex installation was observed launching `codex.exe` in `app-server` mode under the desktop process.
 - OpenAI's public app-server protocol documents the required rate-limit and reset-credit fields.
 - Existing open-source Windows companions demonstrate viable tray, floating-window, caching, and error-handling patterns.
-- No user-provided logo, imagery, copy deck, or other brand asset exists. Future work must not fabricate endorsements or affiliation with OpenAI.
+- The Codex Meter sevenfold interlace was approved by the user on 2026-08-12. Future work must not fabricate endorsements or affiliation with OpenAI.
 
 ## Product Principles
 

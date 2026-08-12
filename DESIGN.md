@@ -22,6 +22,14 @@ The approved V4 composition is **Volumetric Fluid Lens**, confirmed by the user 
 - Hairline: `rgba(180, 230, 255, 0.24)`
 - Typography: `Segoe UI Variable`, `Segoe UI`, system sans-serif; percentages use tabular numerals.
 
+## Brand mark
+
+- Display name: **Codex Meter**.
+- The approved icon is the sevenfold interlace: seven long cyan-to-mint telemetry ribbons alternate over and under around a warped dark observation aperture.
+- Two central quota points use signal red `#FF5C62`; they represent the five-hour and weekly windows with equal priority.
+- The mark contains no literal monitor, screen, stand, sixfold knot, or central hexagonal negative space.
+- At tray sizes, preserve the sevenfold silhouette and the two red points; omit nonessential optical highlights before changing the geometry.
+
 ## Material and motion
 
 - The shell has an outer wall, inner wall, Fresnel rim, local internal reflection and a refractive central seam. Transparent pixels outside the rounded shell stay transparent; no rectangular system shadow or acrylic plate may remain around it.
@@ -44,4 +52,6 @@ The approved V4 composition is **Volumetric Fluid Lens**, confirmed by the user 
 - State coverage: `.impeccable/mocks/states/twin-cells-state-board.png`
 - V4 material: `.impeccable/mocks/rework-v4/v4-volumetric-material.png`
 - V4 inertia storyboard: `.impeccable/mocks/rework-v4/v4-fluid-inertia-storyboard-v2.png`
+- Brand mark: `.impeccable/mocks/branding-v4/codex-meter-interlace-approval.png`
 - V4 approved by the user on 2026-08-11. Implementation must be validated in the real WebView2/Tauri product rather than by a static SVG.
+- Codex Meter name and sevenfold interlace mark approved by the user on 2026-08-12.

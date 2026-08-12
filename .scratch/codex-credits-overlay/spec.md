@@ -1,6 +1,6 @@
 Status: ready-for-agent
 
-# Codex Capacity Floating Window
+# Codex Meter Floating Window
 
 ## Product Contract
 
