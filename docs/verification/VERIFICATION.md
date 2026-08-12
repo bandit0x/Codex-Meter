@@ -2,6 +2,13 @@
 
 **Status:** Acceptance pending
 
+V10 changes the user-facing product name to **Codex Meter** and replaces the
+application/tray icon with the user-approved sevenfold interlace. Seven
+cyan-to-mint telemetry ribbons pass over and under one another around an
+abstract observation aperture; the two central quota points are signal red.
+The mark contains no literal monitor and does not use a sixfold knot or central
+hexagonal negative space.
+
 V9 keeps the approved V8 half-scale liquid implementation and adds quiet
 Windows notification-area lifecycle behavior. Compact, expanded and
 collapsed windows are now 300x130, 300x160 and 260x48 logical pixels. The
@@ -20,28 +27,34 @@ The overlay is excluded from the normal taskbar, registers a notification-area
 icon with show/hide/exit actions, and converts window close into hide-to-tray.
 Only an explicit tray exit is allowed to terminate the event loop.
 
-**Source:** local commit `a4e59f1` (`fix: run quietly from the system tray`).
+**Source:** local commits `5a705bf` (`feat: rebrand app as Codex Meter`) and
+`e8efcaf` (`fix: make portable packaging reproducible`).
 
 **Target environment:** Windows 11 x64, Tauri 2.11.5, Rust 1.97.1,
 Node.js 24.18.0, official `@openai/codex` 0.147.0 runtime, and bundled
 Microsoft Edge WebView2 Fixed Runtime 151.0.4129.78.
 
-**Artifact:** `release/CodexCapacity-0.1.0-win-x64/` (locally generated and
-ignored by Git), 257 files / 998,099,198 bytes. `Codex Capacity.exe` SHA-256:
-`80ed5920d033fad3d8c63984b8a33c3623045d462a763a830314c80345c69f96`.
+**Artifact:** `release/CodexMeter-0.1.0-win-x64/` (locally generated and
+ignored by Git), 261 files / 998,159,343 bytes. `Codex Meter.exe` SHA-256:
+`9bb8ae67d89a485c2ee456d7baea0ed5cda08afb496bbca4fe02060d5fb039c9`.
+The manifest identifies source commit `e8efcaf` and covers every packaged file,
+including WebView2 component manifests.
 
 ## Current checks
 
 | Journey or boundary | Command / action | Actual result |
 | --- | --- | --- |
+| Approved brand geometry | Render the committed SVG and generate all Tauri icon targets with `npx tauri icon` | Passed: application PNG, Windows ICO, ICNS and Appx sizes use the approved sevenfold cyan/mint interlace with two red center points. |
+| Executable identity | Inspect `Codex Meter.exe` version resources and extract its associated icon | Passed: `ProductName` and `FileDescription` both equal `Codex Meter`; the extracted icon matches the approved mark. |
+| Packaged brand smoke test | `scripts/verify-portable-brand.ps1` against the final portable directory | Passed: the real window title is `Codex Meter`, compact size is 300x130, zero matching taskbar buttons exist, and close hides the overlay while the process remains alive. |
 | React state and interaction | `npm.cmd test -- --run` | Passed: 19 tests across 4 files, including exact half-scale layout sizes, linear quota-to-volume mapping, surface-volume conservation, independent chambers, body-momentum decay, state rendering and pointer drag behavior. |
 | Type and production frontend | `npm.cmd run typecheck`; production build inside `npm.cmd run tauri:build` | Passed; Vite emitted the production assets. |
 | Rust integration | `cargo clippy --all-targets -- -D warnings`; `cargo test` | Passed; Clippy is clean and all 14 Rust tests passed, including the no-taskbar configuration contract. The localized MSVC import-library linker notice is informational. |
 | Impeccable mechanical scan | `node .agents/skills/impeccable/scripts/detect.mjs --json ...` | Passed with zero findings. |
 | Five visual states | Deterministic Chromium/WebGL2 fixtures at the physical target sizes | Passed: healthy, loading, failed, expanded and collapsed screenshots use 300x130, 300x160 or 260x48 crops. No liquid grid or mid-volume hard lines remain. |
-| Release build | `npm.cmd run tauri:build`; `scripts/package-portable.ps1` | Passed; the manifest records source commit `a4e59f1`, the pinned Codex runtime and WebView2 Fixed Runtime. |
+| Release build | `npm.cmd run tauri:build`; `scripts/package-portable.ps1` | Passed; the reproducible manifest records source commit `e8efcaf`, the pinned Codex runtime and WebView2 Fixed Runtime. |
 | Quiet child processes | Monitor every visible top-level window belonging to the packaged app and its descendants for 65 seconds | Passed across initial load and the 60-second automatic refresh: zero `ConsoleWindowClass` windows were created. |
-| Taskbar exclusion | Inspect the live Windows 11 taskbar UI Automation tree while the packaged app is running | Passed: zero `Taskbar.TaskListButtonAutomationPeer` elements matched `Codex Capacity`. |
+| Taskbar exclusion | Inspect the live Windows 11 taskbar UI Automation tree while the packaged app is running | Passed: zero taskbar buttons matched `Codex Meter`. |
 | Close-to-tray lifecycle | Send a real `WM_CLOSE` to the packaged Tauri window and inspect visibility/process state | Passed: the 300x130 window changed from visible to hidden while the process remained alive. The tray is built with an explicit 32x32 PNG, left-click toggle, and show/hide/exit menu; setup failure would terminate startup. |
 | WebView2-independent portable launch | Start the packaged executable with isolated AppData and inspect processes created after launch | Passed; the app created a 300x130 real window and 7 WebView2 processes from the bundled runtime, so the machine-wide WebView2 installation is not required. |
 | Real Tauri drag inertia | Drag the packaged window 81x45 px, then compare `GetWindowRect` after release | Passed: the window was displaced 94x52 by 25 ms, coasted another 61x34 by 220 ms, then another 16x9 by 900 ms. |
@@ -50,6 +63,9 @@ ignored by Git), 257 files / 998,099,198 bytes. `Codex Capacity.exe` SHA-256:
 
 ## Evidence
 
+- [Approved Codex Meter icon board](../../.impeccable/mocks/branding-v4/codex-meter-interlace-approval.png)
+- [Icon extracted from the packaged EXE](screenshots/codex-meter-exe-icon.png)
+- [Real packaged Codex Meter window](screenshots/codex-meter-real-window.png)
 - [V8 real Tauri pre-drag frame](screenshots/v8-half-tauri-before.png)
 - [V8 real Tauri release frame at 25 ms](screenshots/v8-half-tauri-motion-25ms.png)
 - [V8 real Tauri release frame at 220 ms](screenshots/v8-half-tauri-motion-220ms.png)
