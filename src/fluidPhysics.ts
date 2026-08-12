@@ -15,6 +15,40 @@ export const IDLE_FLUID_MOTION: FluidMotionSample = {
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.max(minimum, Math.min(maximum, value));
 
+export const AMBIENT_BREEZE = {
+  primarySpatialFrequency: 8.5,
+  primaryTemporalFrequency: 0.28,
+  primaryWeight: 0.42,
+  secondarySpatialFrequency: 15.5,
+  secondaryTemporalFrequency: 0.19,
+  secondaryWeight: 0.16,
+  idleStrength: 0.72,
+  activeStrength: 0.18,
+} as const;
+
+/**
+ * A sub-pixel, long-wavelength breeze for an otherwise settled surface.
+ * Drag-driven shallow-water motion remains separate and visually dominant.
+ */
+export function ambientBreezeOffset(
+  normalizedX: number,
+  timeMs: number,
+  active: boolean,
+): number {
+  const x = clamp(normalizedX, 0, 1);
+  const timeSeconds = timeMs / 1_000;
+  const wave =
+    Math.sin(
+      x * AMBIENT_BREEZE.primarySpatialFrequency
+        + timeSeconds * AMBIENT_BREEZE.primaryTemporalFrequency,
+    ) * AMBIENT_BREEZE.primaryWeight
+    + Math.sin(
+      x * AMBIENT_BREEZE.secondarySpatialFrequency
+        - timeSeconds * AMBIENT_BREEZE.secondaryTemporalFrequency,
+    ) * AMBIENT_BREEZE.secondaryWeight;
+  return wave * (active ? AMBIENT_BREEZE.activeStrength : AMBIENT_BREEZE.idleStrength);
+}
+
 /**
  * A bounded one-dimensional shallow-water surface. The mean displacement is
  * removed after every step, so slosh changes the free-surface shape without
