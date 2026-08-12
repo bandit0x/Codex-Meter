@@ -52,12 +52,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\fetch-webview2-f
 See `PRODUCT.md`, `DESIGN.md`, and `THIRD_PARTY_NOTICES.md` for the approved
 scope, visual direction, and runtime license notice.
 
-## Publish to your GitHub account
+## 发布到你的 GitHub 账号
 
-The repository is prepared for local-to-GitHub publication: generated builds,
-downloaded runtimes, local profiles, caches, logs, and test output are ignored.
-No remote is configured and no source has been uploaded by this project.
+仓库已经做好发布前隔离：构建产物、下载的运行时、本地 profile、缓存、日志和测试输出均不会进入 Git。项目没有配置远程地址，也没有自行上传任何源码。
 
-See [`docs/GITHUB_PUBLISH.md`](docs/GITHUB_PUBLISH.md) for the final local
-checks and the commands you can run yourself after choosing repository
-visibility and a license policy.
+完整步骤见 [`docs/GITHUB_PUBLISH.md`](docs/GITHUB_PUBLISH.md)。请先决定仓库可见性与许可证，再由项目所有者本人执行创建远程仓库和推送命令。
