@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "0.1.1",
     [string]$WebView2RuntimePath = ""
 )
 
@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot "release"))
 $scratchRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot ".scratch\installer"))
+$cargoTargetRoot = Join-Path $scratchRoot "cargo-target"
 $codexRuntime = Join-Path $projectRoot "node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe"
 $installerHooks = Join-Path $projectRoot "src-tauri\windows\installer-hooks.nsh"
 $generatedConfig = Join-Path $scratchRoot "tauri.installer.conf.json"
@@ -63,12 +64,24 @@ $config = [ordered]@{
 }
 $config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $generatedConfig -Encoding UTF8
 
-& npm.cmd run tauri:build -- --config $generatedConfig
-if ($LASTEXITCODE -ne 0) {
-    throw "Tauri NSIS build failed with exit code $LASTEXITCODE."
+$previousCargoTargetDir = $env:CARGO_TARGET_DIR
+$env:CARGO_TARGET_DIR = $cargoTargetRoot
+try {
+    & npm.cmd run tauri:build -- --config $generatedConfig
+    if ($LASTEXITCODE -ne 0) {
+        throw "Tauri NSIS build failed with exit code $LASTEXITCODE."
+    }
+}
+finally {
+    if ($null -eq $previousCargoTargetDir) {
+        Remove-Item Env:CARGO_TARGET_DIR -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:CARGO_TARGET_DIR = $previousCargoTargetDir
+    }
 }
 
-$bundleRoot = Join-Path $projectRoot "src-tauri\target\release\bundle\nsis"
+$bundleRoot = Join-Path $cargoTargetRoot "release\bundle\nsis"
 $builtInstaller = Get-ChildItem -LiteralPath $bundleRoot -File -Filter "*.exe" |
     Sort-Object LastWriteTimeUtc -Descending |
     Select-Object -First 1
