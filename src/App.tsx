@@ -8,11 +8,13 @@ import {
   readCapacitySnapshot,
   saveDisplayPreferences,
 } from "./capacityClient";
+import { readTomatoConnection } from "./tomatoClient";
 import type {
   CapacitySnapshot,
   Diagnostic,
   DisplayPreferences,
   QuotaWindow,
+  TomatoConnectionSnapshot,
 } from "./capacityTypes";
 import { IDLE_FLUID_MOTION, type FluidMotionSample } from "./fluidPhysics";
 import {
@@ -24,10 +26,12 @@ import {
 } from "./windowClient";
 
 export type CapacityLoader = () => Promise<CapacitySnapshot>;
+export type TomatoConnectionLoader = () => Promise<TomatoConnectionSnapshot>;
 
 interface AppProps {
   initialLayout?: OverlayLayout;
   loadSnapshot?: CapacityLoader;
+  loadTomatoConnection?: TomatoConnectionLoader;
   loadPreferences?: () => Promise<DisplayPreferences>;
   savePreferences?: (preferences: DisplayPreferences) => Promise<void>;
   enableClickThrough?: (durationMs?: number) => Promise<void>;
@@ -49,6 +53,8 @@ const defaultPreferences: DisplayPreferences = {
 };
 const REFRESH_INTERVAL_MS = 60_000;
 const CLICK_THROUGH_DURATION_MS = 10_000;
+const ROUTE_HEALTHY_INTERVAL_MS = 5_000;
+const ROUTE_BLOCKED_INTERVAL_MS = 1_000;
 
 function formatPercent(value: number): string {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
@@ -98,6 +104,29 @@ function normalizeDiagnostic(error: unknown): Diagnostic {
     message: "无法读取 Codex 配额",
     detail: error instanceof Error ? error.message : String(error),
   };
+}
+
+function normalizeRouteFailure(error: unknown): TomatoConnectionSnapshot {
+  const diagnostic = normalizeDiagnostic(error);
+  return {
+    state: "blocked",
+    countryCode: null,
+    latencyMs: null,
+    observedAtMs: Date.now(),
+    diagnostic: {
+      ...diagnostic,
+      code: diagnostic.code === "CRV-100" ? "CRV-405" : diagnostic.code,
+      message: "TomatoCloud route is unavailable",
+    },
+  };
+}
+
+function routeStatusText(route: TomatoConnectionSnapshot | null): string {
+  if (!route) return "Checking route…";
+  if (route.state === "blocked") return "Route blocked · retrying";
+  const country = route.countryCode ?? "—";
+  const latency = route.latencyMs === null ? "—" : `${route.latencyMs}`;
+  return `${country} · ${latency} ms`;
 }
 
 function Icon({ name }: { name: "chevron" | "settings" | "close" }) {
@@ -196,6 +225,17 @@ function FailedSurface({ diagnostic, onRetry }: { diagnostic: Diagnostic; onRetr
   );
 }
 
+function RouteAlert({ diagnostic, onRetry }: { diagnostic: Diagnostic | null; onRetry: () => void }) {
+  return (
+    <section className="route-alert" role="alert" aria-live="assertive">
+      <span className="route-alert__mark" aria-hidden="true">!</span>
+      <strong>TomatoCloud route is unavailable</strong>
+      <span>{diagnostic?.code ?? "CRV-404"} · Retrying every second</span>
+      <button type="button" onClick={onRetry}>Retry</button>
+    </section>
+  );
+}
+
 function CollapsedSurface({ snapshot, onRestore }: { snapshot: CapacitySnapshot; onRestore: () => void }) {
   return (
     <button
@@ -231,6 +271,7 @@ function freshnessText(snapshot: CapacitySnapshot, stale: boolean, diagnostic?: 
 export function App({
   initialLayout = "compact",
   loadSnapshot = readCapacitySnapshot,
+  loadTomatoConnection = readTomatoConnection,
   loadPreferences = loadDisplayPreferences,
   savePreferences = saveDisplayPreferences,
   enableClickThrough = enableTemporaryClickThrough,
@@ -248,6 +289,8 @@ export function App({
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [clickThroughSeconds, setClickThroughSeconds] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [routeConnection, setRouteConnection] = useState<TomatoConnectionSnapshot | null>(null);
+  const routeProbeInFlightRef = useRef<Promise<TomatoConnectionSnapshot> | null>(null);
   const [controlMessage, setControlMessage] = useState<string | null>(null);
   const [fluidMotion, setFluidMotion] = useState<FluidMotionSample>(IDLE_FLUID_MOTION);
   const [isWindowDragging, setIsWindowDragging] = useState(false);
@@ -293,6 +336,22 @@ export function App({
     }
   }, [loadSnapshot]);
 
+  const probeRoute = useCallback((): Promise<TomatoConnectionSnapshot> => {
+    if (routeProbeInFlightRef.current) return routeProbeInFlightRef.current;
+
+    const probe = loadTomatoConnection()
+      .catch(normalizeRouteFailure)
+      .then((connection) => {
+        setRouteConnection(connection);
+        return connection;
+      })
+      .finally(() => {
+        routeProbeInFlightRef.current = null;
+      });
+    routeProbeInFlightRef.current = probe;
+    return probe;
+  }, [loadTomatoConnection]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -301,6 +360,26 @@ export function App({
     const timer = window.setInterval(() => void load(), REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const scheduleProbe = async () => {
+      const connection = await probeRoute();
+      if (cancelled) return;
+      const interval = connection.state === "blocked"
+        ? ROUTE_BLOCKED_INTERVAL_MS
+        : ROUTE_HEALTHY_INTERVAL_MS;
+      timer = window.setTimeout(() => void scheduleProbe(), interval);
+    };
+
+    void scheduleProbe();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [probeRoute]);
 
   useEffect(() => {
     void loadPreferences().then(setPreferences).catch(() => undefined);
@@ -505,6 +584,7 @@ export function App({
   const staleFromFailure = view.kind === "failed" && snapshot !== null;
   const stale = staleFromFailure || snapshot?.sourceState === "stale";
   const failureDiagnostic = view.kind === "failed" ? view.diagnostic : undefined;
+  const routeBlocked = routeConnection?.state === "blocked";
   const collapsed = layoutMode === "collapsed" && snapshot !== null;
   const expanded = layoutMode === "expanded";
 
@@ -522,13 +602,14 @@ export function App({
       onPointerUp={handleDragEnd}
       onPointerCancel={handleDragEnd}
     >
-      <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""}`}>
+      <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""} ${routeBlocked ? "glass-shell--route-blocked" : ""}`}>
         <OpticalShell
           dragging={isWindowDragging}
           reducedMotion={preferences.reducedMotion}
           opacity={preferences.opacity}
         />
         <span className="rim-glint" aria-hidden="true" />
+        {routeBlocked && <span className="route-alert-halo" aria-hidden="true" />}
         <div className="drag-rail" aria-hidden="true" />
 
         {collapsed && snapshot ? (
@@ -544,6 +625,7 @@ export function App({
                 <span className="refractive-seam" aria-hidden="true" />
                 <QuotaCell label="5 HOUR" window={snapshot.fiveHour} accent="cyan" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
                 <QuotaCell label="WEEK" window={snapshot.weekly} accent="mint" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
+                {routeBlocked && <RouteAlert diagnostic={routeConnection.diagnostic} onRetry={() => void probeRoute()} />}
               </div>
             )}
 
@@ -553,6 +635,15 @@ export function App({
               {snapshot && !expanded && (
                 <>
                   <span>FULL RESETS <b>{snapshot.fullResetCredits?.availableCount ?? "—"}</b></span>
+                  <span
+                    className={`route-status route-status--${routeConnection?.state ?? "probing"}`}
+                    role="status"
+                    aria-live={routeBlocked ? "assertive" : "polite"}
+                    aria-label={`TomatoCloud ${routeStatusText(routeConnection)}`}
+                  >
+                    <i className="route-status__lamp" aria-hidden="true" />
+                    <span>{routeStatusText(routeConnection)}</span>
+                  </span>
                   <span className={isRefreshing ? "freshness freshness--refreshing" : "freshness"}>
                     {isRefreshing ? "正在刷新" : freshnessText(snapshot, stale, failureDiagnostic)}
                   </span>
@@ -561,6 +652,10 @@ export function App({
               {snapshot && expanded && (
                 <div className="detail-strip">
                   <span>FULL RESET EXPIRES <b>{formatExpiry(snapshot.fullResetCredits?.nearestExpiryAt)}</b></span>
+                  <span className={`route-status route-status--${routeConnection?.state ?? "probing"}`}>
+                    <i className="route-status__lamp" aria-hidden="true" />
+                    <span>{routeStatusText(routeConnection)}</span>
+                  </span>
                   {stale && <span className="stale-warning">STALE · {failureDiagnostic?.code ?? "cached snapshot"}</span>}
                   <div className="detail-actions">
                     <button type="button" onClick={() => void load()} disabled={isRefreshing}>
