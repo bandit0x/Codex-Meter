@@ -38,7 +38,7 @@ _图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实�
 
 ## 🚀 安装与使用
 
-Codex Meter 当前以 Windows x64 便携目录运行，不需要安装器。
+Codex Meter 提供 Windows x64 安装包和便携包。两种版本都会在安装或首次启动时创建桌面快捷方式；已有的 `Codex Meter.lnk` 会被替换并指向当前程序。
 
 ### 运行要求
 
@@ -132,6 +132,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 ```
 
 输出位于 `release/CodexMeter-<版本>-win-x64/`。请将整个目录压缩后作为 GitHub Release 附件发布，不要把运行时或构建产物提交进源码仓库。
+
+### 构建安装包
+
+完成 WebView2 Fixed Version Runtime 下载后运行：
+
+```powershell
+npm.cmd run package:installer
+```
+
+输出位于 `release/CodexMeter-<版本>-win-x64-setup.exe`。安装器会内置 Codex 与 WebView2 运行时，并在桌面创建或替换 `Codex Meter` 快捷方式。
 
 ## 🧱 技术组成
 

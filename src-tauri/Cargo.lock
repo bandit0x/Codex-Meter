@@ -337,6 +337,7 @@ dependencies = [
  "tauri-build",
  "thiserror 2.0.20",
  "tokio",
+ "windows",
 ]
 
 [[package]]

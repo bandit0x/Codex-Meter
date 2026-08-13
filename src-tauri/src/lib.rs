@@ -1,4 +1,6 @@
 mod capacity;
+#[cfg(all(target_os = "windows", any(not(debug_assertions), test)))]
+mod desktop_shortcut;
 mod preferences;
 
 use capacity::{CapacityService, CapacitySnapshot, Diagnostic};
@@ -154,6 +156,10 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(CapacityService::from_environment())
         .setup(|app| {
+            #[cfg(all(target_os = "windows", not(debug_assertions)))]
+            if let Err(error) = desktop_shortcut::replace_desktop_shortcut() {
+                eprintln!("failed to create the Codex Meter desktop shortcut: {error}");
+            }
             let store = PreferencesStore::new(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 restore_window_position(&window, &store);
