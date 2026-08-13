@@ -236,6 +236,20 @@ function RouteAlert({ diagnostic, onRetry }: { diagnostic: Diagnostic | null; on
   );
 }
 
+function RouteStatus({ route, alert }: { route: TomatoConnectionSnapshot | null; alert: boolean }) {
+  return (
+    <span
+      className={`route-status route-status--${route?.state ?? "probing"}`}
+      role="status"
+      aria-live={alert ? "assertive" : "polite"}
+      aria-label={`TomatoCloud ${routeStatusText(route)}`}
+    >
+      <i className="route-status__lamp" aria-hidden="true" />
+      <span>{routeStatusText(route)}</span>
+    </span>
+  );
+}
+
 function CollapsedSurface({ snapshot, onRestore }: { snapshot: CapacitySnapshot; onRestore: () => void }) {
   return (
     <button
@@ -625,25 +639,19 @@ export function App({
                 <span className="refractive-seam" aria-hidden="true" />
                 <QuotaCell label="5 HOUR" window={snapshot.fiveHour} accent="cyan" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
                 <QuotaCell label="WEEK" window={snapshot.weekly} accent="mint" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
-                {routeBlocked && <RouteAlert diagnostic={routeConnection.diagnostic} onRetry={() => void probeRoute()} />}
               </div>
             )}
+
+            {routeBlocked && <RouteAlert diagnostic={routeConnection.diagnostic} onRetry={() => void probeRoute()} />}
 
             <footer className={`status-footer ${expanded ? "status-footer--expanded" : ""}`}>
               {view.kind === "loading" && <span>Reading Codex…</span>}
               {view.kind === "failed" && !snapshot && <span>数据不可用 · {view.diagnostic.code}</span>}
+              {!snapshot && <RouteStatus route={routeConnection} alert={routeBlocked} />}
               {snapshot && !expanded && (
                 <>
                   <span>FULL RESETS <b>{snapshot.fullResetCredits?.availableCount ?? "—"}</b></span>
-                  <span
-                    className={`route-status route-status--${routeConnection?.state ?? "probing"}`}
-                    role="status"
-                    aria-live={routeBlocked ? "assertive" : "polite"}
-                    aria-label={`TomatoCloud ${routeStatusText(routeConnection)}`}
-                  >
-                    <i className="route-status__lamp" aria-hidden="true" />
-                    <span>{routeStatusText(routeConnection)}</span>
-                  </span>
+                  <RouteStatus route={routeConnection} alert={routeBlocked} />
                   <span className={isRefreshing ? "freshness freshness--refreshing" : "freshness"}>
                     {isRefreshing ? "正在刷新" : freshnessText(snapshot, stale, failureDiagnostic)}
                   </span>
@@ -652,10 +660,7 @@ export function App({
               {snapshot && expanded && (
                 <div className="detail-strip">
                   <span>FULL RESET EXPIRES <b>{formatExpiry(snapshot.fullResetCredits?.nearestExpiryAt)}</b></span>
-                  <span className={`route-status route-status--${routeConnection?.state ?? "probing"}`}>
-                    <i className="route-status__lamp" aria-hidden="true" />
-                    <span>{routeStatusText(routeConnection)}</span>
-                  </span>
+                  <RouteStatus route={routeConnection} alert={routeBlocked} />
                   {stale && <span className="stale-warning">STALE · {failureDiagnostic?.code ?? "cached snapshot"}</span>}
                   <div className="detail-actions">
                     <button type="button" onClick={() => void load()} disabled={isRefreshing}>

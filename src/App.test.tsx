@@ -81,6 +81,22 @@ describe("Codex capacity overlay", () => {
     expect(screen.getAllByRole("group")).toHaveLength(2);
   });
 
+  it("keeps the blocked route state visible when Codex data is unavailable", async () => {
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => {
+          throw { code: "CRV-201", message: "Codex unavailable", detail: null };
+        }}
+        loadTomatoConnection={async () => blockedTomato}
+      />,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("TomatoCloud route is unavailable");
+    expect(screen.getByRole("status", { name: /TomatoCloud Route blocked/ })).toBeInTheDocument();
+    expect(container.querySelector(".glass-shell--route-blocked")).toBeInTheDocument();
+  });
+
   it("uses one shared actionable failure surface and retries", async () => {
     const user = userEvent.setup();
     let attempt = 0;
