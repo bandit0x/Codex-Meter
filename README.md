@@ -41,6 +41,23 @@ _图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK ·
 
 其他确定性测试状态包括[加载状态](docs/verification/screenshots/v8-half-loading.png)和[窄条状态](docs/verification/screenshots/v8-half-collapsed.png)。这些截图均使用测试夹具生成。
 
+## 📦 版本更新
+
+### 0.1.2
+
+- 新增 TomatoCloud 端到端路由监测：通过已启用的 Windows 本地系统代理发起真实 HTTPS Route Probe，不把“进程仍在运行”误认为连接正常
+- 在共享页脚显示连接指示灯、出口国家缩写和 Route Probe 延迟，例如 `UK · 42 ms`
+- 健康状态每 5 秒探测；路由阻塞或断开后每 1 秒复测，并让整个液态玻璃外沿红色闪烁报警
+- 路由阻塞时显示统一的跨双舱错误面、稳定诊断码和 `Retry` 操作；即使 Codex 配额读取失败，TomatoCloud 报警也不会消失
+- 补充 TomatoCloud 阻塞、Codex 数据不可用时仍保留报警的自动化测试，并将安装包、便携包和 Tauri/Cargo 元数据统一到 `0.1.2`
+
+### 0.1.1
+
+- 将前端、Tauri、Rust 和安装脚本的版本统一为 `0.1.1`
+- 安装器构建使用隔离的 Cargo 目标目录，避免构建缓存污染发布目录，并可靠定位 NSIS 输出
+- 便携包和安装包文件名统一采用 `CodexMeter-0.1.1-win-x64` 版本格式
+- 增加 Windows 可执行文件图标和便携包品牌校验所需的发布证据
+
 ## 🚀 安装与使用
 
 Codex Meter 提供 Windows x64 安装包和便携包。两种版本都会在安装或首次启动时创建桌面快捷方式；已有的 `Codex Meter.lnk` 会被替换并指向当前程序。
