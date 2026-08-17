@@ -15,8 +15,9 @@ Codex Meter 通过本机 Codex `app-server` 读取只读配额数据，在一个
 > [!IMPORTANT]
 > Codex Meter 是非官方社区项目，与 OpenAI 或 ChatGPT 无隶属、赞助或背书关系。
 
-![Codex Meter 正常状态，画面使用测试数据](docs/verification/screenshots/v8-half-healthy.png)
-_图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实账号或配额信息。_
+![Codex Meter 正常状态，TomatoCloud 健康路由 UK · 42 ms](docs/verification/screenshots/v8-half-healthy.png)
+
+_图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK · 42 ms）。截图使用测试数据，不包含真实账号或配额信息。_
 
 ## ✨ 主要功能
 
@@ -36,7 +37,7 @@ _图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实�
 
 | 紧凑视图 | 展开视图 | 失败状态 |
 | --- | --- | --- |
-| ![Codex Meter 紧凑视图](docs/verification/screenshots/v8-half-healthy.png) | ![Codex Meter 展开视图](docs/verification/screenshots/v8-half-expanded.png) | ![Codex Meter 失败状态](docs/verification/screenshots/v8-half-failed.png) |
+| ![Codex Meter 紧凑视图，TomatoCloud 健康](docs/verification/screenshots/v8-half-healthy.png) | ![Codex Meter 展开视图，TomatoCloud 健康](docs/verification/screenshots/v8-half-expanded.png) | ![Codex Meter TomatoCloud 路由阻塞状态](docs/verification/screenshots/v8-half-failed.png) |
 
 其他确定性测试状态包括[加载状态](docs/verification/screenshots/v8-half-loading.png)和[窄条状态](docs/verification/screenshots/v8-half-collapsed.png)。这些截图均使用测试夹具生成。
 

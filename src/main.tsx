@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
-import type { CapacitySnapshot } from "./capacityTypes";
+import type { CapacitySnapshot, TomatoConnectionSnapshot } from "./capacityTypes";
 import { overlayLayoutSizes, type OverlayLayout } from "./windowClient";
 
 const visualFixture: CapacitySnapshot = {
@@ -22,6 +22,26 @@ const visualFixture: CapacitySnapshot = {
   observedAtMs: Date.now(),
 };
 
+const visualHealthyRoute: TomatoConnectionSnapshot = {
+  state: "healthy",
+  countryCode: "UK",
+  latencyMs: 42,
+  observedAtMs: Date.now(),
+  diagnostic: null,
+};
+
+const visualBlockedRoute: TomatoConnectionSnapshot = {
+  state: "blocked",
+  countryCode: null,
+  latencyMs: null,
+  observedAtMs: Date.now(),
+  diagnostic: {
+    code: "CRV-404",
+    message: "TomatoCloud route is unavailable",
+    detail: null,
+  },
+};
+
 const visualFixtureNames = new Set([
   "v4",
   "v7-healthy",
@@ -29,6 +49,7 @@ const visualFixtureNames = new Set([
   "v7-failed",
   "v7-expanded",
   "v7-collapsed",
+  "v7-route-blocked",
 ]);
 
 function resolveFixtureLayout(
@@ -63,6 +84,8 @@ const fixtureProps: React.ComponentProps<typeof App> = fixtureEnabled
   ? {
       initialLayout: fixtureLayout,
       loadSnapshot: createFixtureLoader(fixtureName),
+      loadTomatoConnection: async () =>
+        fixtureName === "v7-route-blocked" ? visualBlockedRoute : visualHealthyRoute,
       loadPreferences: async () => ({ opacity: 0.92, reducedMotion: false, x: null, y: null }),
       savePreferences: async () => undefined,
       enableClickThrough: async () => undefined,
