@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 if ([string]::IsNullOrWhiteSpace($Executable)) {
-    $Executable = Join-Path $projectRoot "release\CodexMeter-0.1.0-win-x64\Codex Meter.exe"
+    $Executable = Join-Path $projectRoot "release\CodexMeter-0.1.2-win-x64\Codex Meter.exe"
 }
 $Executable = [System.IO.Path]::GetFullPath($Executable)
 if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
@@ -78,14 +78,21 @@ try {
 
     Start-Sleep -Seconds 3
     $windowPath = Join-Path $evidenceDirectory "codex-meter-real-window.png"
-    $windowBitmap = [System.Drawing.Bitmap]::new($rect.Right - $rect.Left, $rect.Bottom - $rect.Top)
+    $windowCaptureStatus = "captured"
     try {
-        $graphics = [System.Drawing.Graphics]::FromImage($windowBitmap)
-        try { $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $windowBitmap.Size) }
-        finally { $graphics.Dispose() }
-        $windowBitmap.Save($windowPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        $windowBitmap = [System.Drawing.Bitmap]::new($rect.Right - $rect.Left, $rect.Bottom - $rect.Top)
+        try {
+            $graphics = [System.Drawing.Graphics]::FromImage($windowBitmap)
+            try { $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $windowBitmap.Size) }
+            finally { $graphics.Dispose() }
+            $windowBitmap.Save($windowPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        }
+        finally { $windowBitmap.Dispose() }
     }
-    finally { $windowBitmap.Dispose() }
+    catch {
+        Remove-Item -LiteralPath $windowPath -Force -ErrorAction SilentlyContinue
+        $windowCaptureStatus = "not-captured: $($_.Exception.Message)"
+    }
 
     $root = [System.Windows.Automation.AutomationElement]::RootElement
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
@@ -114,6 +121,7 @@ try {
         CloseBehavior = "hidden-to-tray"
         IconEvidence = $iconPath
         WindowEvidence = $windowPath
+        WindowCapture = $windowCaptureStatus
     }
 }
 finally {

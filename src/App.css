@@ -149,6 +149,19 @@ input:focus-visible {
   animation: rim-glint 9s 2.2s ease-in-out infinite;
 }
 
+.route-alert-halo {
+  position: absolute;
+  z-index: 14;
+  inset: 2px;
+  pointer-events: none;
+  border: 2px solid rgba(255, 95, 87, 0.72);
+  border-radius: 32px;
+  box-shadow: 0 0 18px rgba(255, 58, 47, 0.56), inset 0 0 14px rgba(255, 84, 70, 0.16);
+  animation: route-alert-pulse 1.2s ease-in-out infinite;
+}
+
+.glass-shell--collapsed .route-alert-halo { border-radius: 26px; }
+
 .drag-rail {
   position: absolute;
   z-index: 13;
@@ -345,6 +358,47 @@ input:focus-visible {
 
 .status-footer b { color: var(--mint); font-weight: 700; }
 
+.route-status {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #dff6fb;
+  white-space: nowrap;
+  font-weight: 620;
+}
+
+.route-status__lamp {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(235, 255, 255, 0.62);
+  border-radius: 50%;
+  background: #738793;
+  box-shadow: 0 0 8px rgba(172, 209, 223, 0.35);
+}
+
+.route-status--healthy .route-status__lamp {
+  background: #40e7a8;
+  box-shadow: 0 0 11px rgba(64, 231, 168, 0.9);
+}
+
+.route-status--blocked { color: #ffd5cf; }
+.route-status--blocked .route-status__lamp {
+  background: var(--danger);
+  box-shadow: 0 0 12px rgba(255, 96, 79, 0.95);
+  animation: route-lamp-pulse 1s ease-in-out infinite;
+}
+
+.route-status--probing { color: #ffe0a7; }
+.route-status--probing .route-status__lamp {
+  border-color: #ffc14d;
+  background: transparent;
+  box-shadow: 0 0 10px rgba(255, 193, 77, 0.68);
+  animation: route-probing-ring 1s linear infinite;
+}
+
 .freshness { text-align: right; }
 
 .freshness--refreshing {
@@ -520,6 +574,65 @@ input:focus-visible {
   background: rgba(255, 104, 76, 0.06);
 }
 
+.route-alert {
+  position: absolute;
+  z-index: 9;
+  top: 50%;
+  left: 50%;
+  width: min(390px, calc(100% - 52px));
+  min-height: 94px;
+  padding: 12px 18px;
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  border: 1px solid rgba(255, 121, 105, 0.74);
+  border-radius: 18px;
+  color: #fff0ed;
+  background: linear-gradient(125deg, rgba(75, 13, 16, 0.89), rgba(37, 12, 18, 0.82));
+  box-shadow: 0 10px 28px rgba(0, 2, 8, 0.48), inset 0 1px rgba(255, 238, 234, 0.2);
+  backdrop-filter: blur(14px) saturate(135%);
+  transform: translate(-50%, -50%);
+  animation: route-alert-arrive 220ms var(--ease-out-expo) both;
+}
+
+.route-alert::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(80% 130% at 50% 100%, rgba(255, 88, 74, 0.34), transparent 72%);
+  opacity: 0.72;
+}
+
+.route-alert__mark {
+  width: 27px;
+  height: 27px;
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--danger);
+  border-radius: 50%;
+  color: var(--danger);
+  font-size: 18px;
+  font-weight: 760;
+}
+
+.route-alert strong { font-size: 15px; letter-spacing: 0.01em; }
+.route-alert > span:not(.route-alert__mark) { color: #ffc9be; font-size: 11px; }
+.route-alert button {
+  grid-row: span 2;
+  min-width: 62px;
+  min-height: 30px;
+  border: 1px solid rgba(255, 137, 122, 0.86);
+  border-radius: 10px;
+  color: #fff2ef;
+  background: rgba(255, 115, 95, 0.1);
+}
+
+.route-alert button:hover { background: rgba(255, 115, 95, 0.22); }
+
 .collapsed-surface {
   position: relative;
   z-index: 5;
@@ -676,4 +789,21 @@ input:focus-visible {
 @keyframes settings-arrive {
   from { opacity: 0; transform: translateY(6px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes route-alert-pulse {
+  0%, 100% { opacity: 0.36; filter: brightness(0.94); }
+  50% { opacity: 0.95; filter: brightness(1.16); }
+}
+
+@keyframes route-lamp-pulse {
+  0%, 100% { opacity: 0.52; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes route-probing-ring { to { transform: rotate(360deg); } }
+
+@keyframes route-alert-arrive {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 4px)) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }

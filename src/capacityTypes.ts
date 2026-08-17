@@ -30,3 +30,11 @@ export interface Diagnostic {
   message: string;
   detail: string | null;
 }
+
+export interface TomatoConnectionSnapshot {
+  state: "healthy" | "blocked";
+  countryCode: string | null;
+  latencyMs: number | null;
+  observedAtMs: number;
+  diagnostic: Diagnostic | null;
+}

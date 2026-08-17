@@ -1,7 +1,7 @@
 {
   "name": "codex-credits-view",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "package:installer": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/package-installer.ps1"
   },
   "dependencies": {
     "@openai/codex": "0.147.0",

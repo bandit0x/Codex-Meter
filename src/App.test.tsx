@@ -2,13 +2,20 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
-import type { CapacitySnapshot } from "./capacityTypes";
+import type { CapacitySnapshot, TomatoConnectionSnapshot } from "./capacityTypes";
 
 const inertPreferences = {
   loadPreferences: async () => ({ opacity: 0.92, reducedMotion: false, x: null, y: null }),
   savePreferences: async () => undefined,
   enableClickThrough: async () => undefined,
   setWindowLayout: async () => undefined,
+  loadTomatoConnection: async (): Promise<TomatoConnectionSnapshot> => ({
+    state: "healthy",
+    countryCode: "UK",
+    latencyMs: 42,
+    observedAtMs: 1_800_000_000_000,
+    diagnostic: null,
+  }),
 };
 
 const healthySnapshot: CapacitySnapshot = {
@@ -32,6 +39,14 @@ const healthySnapshot: CapacitySnapshot = {
   observedAtMs: 1_800_000_000_000,
 };
 
+const blockedTomato: TomatoConnectionSnapshot = {
+  state: "blocked",
+  countryCode: "UK",
+  latencyMs: null,
+  observedAtMs: 1_800_000_000_000,
+  diagnostic: { code: "CRV-404", message: "TomatoCloud route is unavailable", detail: null },
+};
+
 describe("Codex capacity overlay", () => {
   it("keeps both quota windows present with equal loading treatment", () => {
     render(<App {...inertPreferences} loadSnapshot={() => new Promise(() => undefined)} />);
@@ -49,6 +64,37 @@ describe("Codex capacity overlay", () => {
     expect(within(fiveHour).getByText("76%", { exact: false })).toBeInTheDocument();
     expect(within(weekly).getByText("42%", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("FULL RESETS", { exact: false })).toHaveTextContent("2");
+    expect(await screen.findByText("UK · 42 ms")).toBeInTheDocument();
+  });
+
+  it("shows one shared red route alert while preserving both quota windows", async () => {
+    render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => healthySnapshot}
+        loadTomatoConnection={async () => blockedTomato}
+      />,
+    );
+
+    expect(await screen.findByText("TomatoCloud route is unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Route blocked · retrying")).toBeInTheDocument();
+    expect(screen.getAllByRole("group")).toHaveLength(2);
+  });
+
+  it("keeps the blocked route state visible when Codex data is unavailable", async () => {
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => {
+          throw { code: "CRV-201", message: "Codex unavailable", detail: null };
+        }}
+        loadTomatoConnection={async () => blockedTomato}
+      />,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("TomatoCloud route is unavailable");
+    expect(screen.getByRole("status", { name: /TomatoCloud Route blocked/ })).toBeInTheDocument();
+    expect(container.querySelector(".glass-shell--route-blocked")).toBeInTheDocument();
   });
 
   it("uses one shared actionable failure surface and retries", async () => {

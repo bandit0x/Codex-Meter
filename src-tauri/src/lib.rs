@@ -1,8 +1,12 @@
 mod capacity;
+#[cfg(all(target_os = "windows", any(not(debug_assertions), test)))]
+mod desktop_shortcut;
 mod preferences;
+mod tomato_cloud;
 
 use capacity::{CapacityService, CapacitySnapshot, Diagnostic};
 use preferences::{restore_window_position, DisplayPreferences, PreferencesStore};
+use tomato_cloud::{TomatoCloudService, TomatoConnectionSnapshot};
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
@@ -108,6 +112,13 @@ async fn read_capacity_snapshot(
 }
 
 #[tauri::command]
+async fn read_tomato_connection(
+    service: State<'_, TomatoCloudService>,
+) -> Result<TomatoConnectionSnapshot, Diagnostic> {
+    Ok(service.read_connection().await)
+}
+
+#[tauri::command]
 fn load_display_preferences(store: State<'_, PreferencesStore>) -> DisplayPreferences {
     store.load()
 }
@@ -153,7 +164,12 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .manage(CapacityService::from_environment())
+        .manage(TomatoCloudService::new())
         .setup(|app| {
+            #[cfg(all(target_os = "windows", not(debug_assertions)))]
+            if let Err(error) = desktop_shortcut::replace_desktop_shortcut() {
+                eprintln!("failed to create the Codex Meter desktop shortcut: {error}");
+            }
             let store = PreferencesStore::new(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 restore_window_position(&window, &store);
@@ -176,6 +192,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             read_capacity_snapshot,
+            read_tomato_connection,
             load_display_preferences,
             save_display_preferences,
             enable_temporary_click_through

@@ -6,6 +6,8 @@
 
 _Windows 11 上的轻量 Codex 配额桌面浮窗。_
 
+当前版本：**0.1.2**
+
 ---
 
 Codex Meter 通过本机 Codex `app-server` 读取只读配额数据，在一个可拖动的液态玻璃浮窗中并列展示 **5 小时额度**和**一周额度**。应用手动启动、常驻通知区域，不创建开机启动项，也不会占用普通任务栏位置。
@@ -13,9 +15,9 @@ Codex Meter 通过本机 Codex `app-server` 读取只读配额数据，在一个
 > [!IMPORTANT]
 > Codex Meter 是非官方社区项目，与 OpenAI 或 ChatGPT 无隶属、赞助或背书关系。
 
-![Codex Meter 正常状态，画面使用测试数据](docs/verification/screenshots/v8-half-healthy.png)
+![Codex Meter 正常状态，TomatoCloud 健康路由 UK · 42 ms](docs/verification/screenshots/v8-half-healthy.png)
 
-_图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实账号或配额信息。_
+_图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK · 42 ms）。截图使用测试数据，不包含真实账号或配额信息。_
 
 ## ✨ 主要功能
 
@@ -25,6 +27,8 @@ _图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实�
 - 展示额度重置时间和可用完整重置次数
 - 支持紧凑、展开和窄条三种布局
 - 支持窗口拖动惯性和独立液体晃动
+- 端到端监测 TomatoCloud 路由：通过本机系统代理发起真实 HTTPS Route Probe，显示连接灯、出口国家缩写和延迟
+- TomatoCloud 正常时每 5 秒探测；阻塞或断开时每 1 秒复测，并让整个液态玻璃边缘红色闪烁报警
 - 支持 10 秒鼠标穿透、透明度调节和减少动效
 - 关闭窗口后隐藏到 Windows 通知区域，可从托盘重新显示或退出
 - 数据读取失败时保留最近一次有效数据，并显示稳定诊断码
@@ -33,13 +37,30 @@ _图 1：Codex Meter 正常状态；截图使用测试数据，不包含真实�
 
 | 紧凑视图 | 展开视图 | 失败状态 |
 | --- | --- | --- |
-| ![Codex Meter 紧凑视图](docs/verification/screenshots/v8-half-healthy.png) | ![Codex Meter 展开视图](docs/verification/screenshots/v8-half-expanded.png) | ![Codex Meter 失败状态](docs/verification/screenshots/v8-half-failed.png) |
+| ![Codex Meter 紧凑视图，TomatoCloud 健康](docs/verification/screenshots/v8-half-healthy.png) | ![Codex Meter 展开视图，TomatoCloud 健康](docs/verification/screenshots/v8-half-expanded.png) | ![Codex Meter TomatoCloud 路由阻塞状态](docs/verification/screenshots/v8-half-failed.png) |
 
 其他确定性测试状态包括[加载状态](docs/verification/screenshots/v8-half-loading.png)和[窄条状态](docs/verification/screenshots/v8-half-collapsed.png)。这些截图均使用测试夹具生成。
 
+## 📦 版本更新
+
+### 0.1.2
+
+- 新增 TomatoCloud 端到端路由监测：通过已启用的 Windows 本地系统代理发起真实 HTTPS Route Probe，不把“进程仍在运行”误认为连接正常
+- 在共享页脚显示连接指示灯、出口国家缩写和 Route Probe 延迟，例如 `UK · 42 ms`
+- 健康状态每 5 秒探测；路由阻塞或断开后每 1 秒复测，并让整个液态玻璃外沿红色闪烁报警
+- 路由阻塞时显示统一的跨双舱错误面、稳定诊断码和 `Retry` 操作；即使 Codex 配额读取失败，TomatoCloud 报警也不会消失
+- 补充 TomatoCloud 阻塞、Codex 数据不可用时仍保留报警的自动化测试，并将安装包、便携包和 Tauri/Cargo 元数据统一到 `0.1.2`
+
+### 0.1.1
+
+- 将前端、Tauri、Rust 和安装脚本的版本统一为 `0.1.1`
+- 安装器构建使用隔离的 Cargo 目标目录，避免构建缓存污染发布目录，并可靠定位 NSIS 输出
+- 便携包和安装包文件名统一采用 `CodexMeter-0.1.1-win-x64` 版本格式
+- 增加 Windows 可执行文件图标和便携包品牌校验所需的发布证据
+
 ## 🚀 安装与使用
 
-Codex Meter 当前以 Windows x64 便携目录运行，不需要安装器。
+Codex Meter 提供 Windows x64 安装包和便携包。两种版本都会在安装或首次启动时创建桌面快捷方式；已有的 `Codex Meter.lnk` 会被替换并指向当前程序。
 
 ### 运行要求
 
@@ -77,6 +98,8 @@ Codex Meter 启动独立的本机 Codex `app-server` 进程，通过只读 JSON-
 - 要求 `.env`、API Key 或个人访问令牌
 - 修改账号状态或自动使用完整重置次数
 - 将配额、日志或配置上传到第三方服务
+
+TomatoCloud 监测同样只使用公开的本机可观测边界：检查运行所需进程、读取已启用的 Windows 本地系统代理，并通过该代理完成真实 HTTPS 请求。应用不会读取 TomatoCloud 的私有 IPC、日志、配置、内存或凭据。仅进程仍在运行并不代表连接健康；只有 Route Probe 成功时才显示绿色状态、出口国家缩写和 `XX ms` 延迟。
 
 本地仅保存窗口位置、透明度和减少动效等显示偏好。
 
@@ -134,6 +157,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 输出位于 `release/CodexMeter-<版本>-win-x64/`。请将整个目录压缩后作为 GitHub Release 附件发布，不要把运行时或构建产物提交进源码仓库。
 
+### 构建安装包
+
+完成 WebView2 Fixed Version Runtime 下载后运行：
+
+```powershell
+npm.cmd run package:installer
+```
+
+输出位于 `release/CodexMeter-<版本>-win-x64-setup.exe`。安装器会内置 Codex 与 WebView2 运行时，并在桌面创建或替换 `Codex Meter` 快捷方式。
+
 ## 🧱 技术组成
 
 | 层 | 技术 | 职责 |
@@ -163,6 +196,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 ### 鼠标无法操作浮窗
 
 可能启用了临时穿透模式。等待 10 秒后会自动恢复。
+
+### TomatoCloud 显示红色报警
+
+红色状态表示真实 Route Probe 未能通过，不只是 TomatoCloud 进程缺失。应用会显示稳定诊断码并每秒复测；请先确认 TomatoCloud 已连接，再在浮窗中点击“重试”。恢复后会回到绿色指示灯，并显示新的出口国家缩写与延迟。
 
 ## 🤝 参与贡献
 
