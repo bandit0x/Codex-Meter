@@ -6,7 +6,7 @@
 
 _Windows 11 上的轻量 Codex 配额桌面浮窗。_
 
-当前版本：**0.1.2**
+当前版本：**0.1.3**
 
 ---
 
@@ -42,6 +42,13 @@ _图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK ·
 其他确定性测试状态包括[加载状态](docs/verification/screenshots/v8-half-loading.png)和[窄条状态](docs/verification/screenshots/v8-half-collapsed.png)。这些截图均使用测试夹具生成。
 
 ## 📦 版本更新
+
+### 0.1.3
+
+- 修复液体仓底部空缺：液体渲染层现在会连续延伸到下沉的玻璃底唇，两个舱体底部不再露出空白条带
+- WebGL2 与 Canvas 2D fallback 共用下沉液体延伸尺寸，保持 5 小时和一周百分比的液面高度映射一致
+- 保留原有液态玻璃外壁、footer 遮挡关系、液体波浪和拖动惯性，不新增白色边框或分界线
+- 将前端、Tauri、Rust、锁文件和便携包/安装包脚本的版本统一为 `0.1.3`
 
 ### 0.1.2
 
