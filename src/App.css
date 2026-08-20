@@ -199,11 +199,11 @@ input:focus-visible {
     radial-gradient(90% 64% at 50% -8%, rgba(178, 229, 248, 0.16), transparent 56%),
     linear-gradient(180deg, rgba(12, 31, 45, 0.98), rgba(2, 12, 21, 0.99));
   box-shadow:
-    0 0 0 4px rgba(11, 54, 70, 0.62),
-    0 0 9px rgba(25, 115, 139, 0.16),
+    0 0 0 4px rgba(11, 54, 70, 0.48),
+    0 0 9px rgba(25, 115, 139, 0.2),
     0 5px 12px rgba(0, 3, 8, 0.44),
     inset 0 1px 2px rgba(179, 230, 246, 0.14),
-    inset 0 -10px 20px rgba(0, 3, 9, 0.62);
+    inset 0 -10px 20px rgba(0, 3, 9, 0.5);
 }
 
 .quota-cell--mint {
@@ -234,7 +234,8 @@ input:focus-visible {
   border-radius: inherit;
   box-shadow:
     inset 0 15px 22px rgba(205, 242, 255, 0.14),
-    inset 0 -18px 26px rgba(0, 3, 10, 0.72);
+    inset 0 -2px 0 rgba(78, 174, 195, 0.22),
+    inset 0 -14px 24px rgba(0, 3, 10, 0.42);
 }
 
 .quota-cell--mint::after { border-radius: inherit; }
@@ -397,15 +398,15 @@ input:focus-visible {
   isolation: isolate;
   overflow: hidden;
   border: 1px solid rgba(89, 188, 210, 0.22);
-  border-top-color: rgba(185, 235, 246, 0.2);
+  border-top-color: transparent;
   background:
     radial-gradient(120% 190% at 14% -40%, rgba(162, 231, 244, 0.22), transparent 55%),
     radial-gradient(90% 150% at 92% 120%, rgba(71, 215, 190, 0.15), transparent 60%),
-    linear-gradient(180deg, rgba(47, 120, 145, 0.34), rgba(6, 30, 42, 0.56) 48%, rgba(1, 8, 14, 0.66));
+    linear-gradient(180deg, rgba(47, 120, 145, 0.24), rgba(6, 30, 42, 0.48) 48%, rgba(1, 8, 14, 0.66));
   backdrop-filter: blur(15px) saturate(145%);
   -webkit-backdrop-filter: blur(15px) saturate(145%);
   box-shadow:
-    inset 0 1px 0 rgba(204, 243, 250, 0.22),
+    inset 0 1px 0 rgba(204, 243, 250, 0.14),
     inset 0 0 16px rgba(85, 209, 232, 0.06),
     inset 0 -12px 20px rgba(0, 4, 12, 0.44),
     0 4px 12px rgba(0, 3, 8, 0.24);
@@ -413,7 +414,7 @@ input:focus-visible {
   font-size: 13px;
   letter-spacing: 0.018em;
   font-variant-numeric: tabular-nums;
-  margin: 0 9px 8px;
+  margin: -4px 9px 8px;
   border-radius: 0 0 22px 22px;
 }
 
@@ -424,7 +425,11 @@ input:focus-visible {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  background: linear-gradient(118deg, rgba(236, 253, 255, 0.1), transparent 24% 72%, rgba(112, 218, 226, 0.07));
+  background:
+    radial-gradient(58% 110% at 18% 0, rgba(91, 204, 224, 0.2), transparent 72%),
+    radial-gradient(58% 110% at 82% 0, rgba(85, 220, 198, 0.16), transparent 72%),
+    linear-gradient(180deg, rgba(116, 205, 220, 0.1), transparent 48%),
+    linear-gradient(118deg, rgba(236, 253, 255, 0.07), transparent 24% 72%, rgba(112, 218, 226, 0.05));
   mix-blend-mode: screen;
 }
 
