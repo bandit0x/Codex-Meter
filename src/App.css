@@ -198,6 +198,7 @@ input:focus-visible {
   background: linear-gradient(90deg, rgba(0, 4, 9, 0.62), rgba(220, 247, 255, 0.62) 48%, rgba(0, 4, 9, 0.44));
   box-shadow: -5px 0 16px rgba(25, 143, 192, 0.08), 5px 0 16px rgba(52, 187, 157, 0.07);
   opacity: 0.72;
+  display: none;
 }
 
 .quota-cell {
@@ -245,8 +246,6 @@ input:focus-visible {
   border-radius: inherit;
   box-shadow:
     0 0 0 1px rgba(0, 5, 12, 0.68),
-    inset 7px 0 13px rgba(239, 253, 255, 0.18),
-    inset -7px 0 14px color-mix(in srgb, var(--accent) 20%, transparent),
     inset 0 15px 22px rgba(205, 242, 255, 0.14),
     inset 0 -18px 26px rgba(0, 3, 10, 0.72);
 }
@@ -343,6 +342,7 @@ input:focus-visible {
     transparent
   );
   box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 28%, transparent);
+  display: none;
 }
 
 .scale-line__ticks {
