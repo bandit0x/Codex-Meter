@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   ambientBreezeOffset,
+  FLUID_TAIL_EXTENSION,
   FluidBodyMomentum,
   FluidSurface,
   type FluidMotionSample,
@@ -101,12 +102,14 @@ function drawReservoir(
   const insetTop = 5;
   const insetBottom = 5;
   const innerWidth = width - insetX * 2;
-  const innerHeight = height - insetTop - insetBottom;
-  const baseY = linearLiquidLevel(percent, insetTop, innerHeight);
-  const liquidDepth = insetTop + innerHeight - baseY;
+  const clipHeight = height - insetTop - insetBottom;
+  const chamberHeight = Math.max(clipHeight - FLUID_TAIL_EXTENSION, 1);
+  const liquidBottom = insetTop + clipHeight + 2;
+  const baseY = linearLiquidLevel(percent, insetTop, chamberHeight);
+  const liquidDepth = liquidBottom - baseY;
 
   context.save();
-  roundedRect(context, insetX, insetTop, innerWidth, innerHeight, 22);
+  roundedRect(context, insetX, insetTop, innerWidth, clipHeight, 22);
   context.clip();
 
   const chamberLight = context.createRadialGradient(width * 0.5, -4, 4, width * 0.5, 0, width * 0.78);
@@ -114,7 +117,7 @@ function drawReservoir(
   chamberLight.addColorStop(0.48, "rgba(36, 94, 120, .07)");
   chamberLight.addColorStop(1, "rgba(0, 4, 10, .22)");
   context.fillStyle = chamberLight;
-  context.fillRect(insetX, insetTop, innerWidth, innerHeight);
+  context.fillRect(insetX, insetTop, innerWidth, clipHeight);
 
   context.beginPath();
   traceSurface(
@@ -127,11 +130,11 @@ function drawReservoir(
     active,
     ambientMotion,
   );
-  context.lineTo(insetX + innerWidth, insetTop + innerHeight + 2);
-  context.lineTo(insetX, insetTop + innerHeight + 2);
+  context.lineTo(insetX + innerWidth, liquidBottom);
+  context.lineTo(insetX, liquidBottom);
   context.closePath();
 
-  const body = context.createLinearGradient(0, baseY, 0, insetTop + innerHeight);
+  const body = context.createLinearGradient(0, baseY, 0, liquidBottom);
   body.addColorStop(0, palette.top);
   body.addColorStop(0.08, palette.top);
   body.addColorStop(0.3, palette.middle);
@@ -163,10 +166,10 @@ function drawReservoir(
   lateralRefraction.addColorStop(0.92, "rgba(72, 222, 203, .07)");
   lateralRefraction.addColorStop(1, "rgba(233, 255, 251, .28)");
   context.fillStyle = lateralRefraction;
-  context.fillRect(insetX, baseY, innerWidth, insetTop + innerHeight - baseY);
+  context.fillRect(insetX, baseY, innerWidth, liquidDepth);
 
   const causticHeight = Math.min(82, liquidDepth * 0.58);
-  const causticStart = insetTop + innerHeight - causticHeight;
+  const causticStart = liquidBottom - causticHeight;
   context.filter = "blur(5px)";
   for (let plume = 0; plume < 7; plume += 1) {
     const seed = plume * 1.731;
@@ -191,7 +194,7 @@ function drawReservoir(
   context.globalAlpha = 0.38;
   for (let glow = 0; glow < 6; glow += 1) {
     const centerX = insetX + ((glow + 0.55) / 6) * innerWidth;
-    const centerY = insetTop + innerHeight - 5 - (glow % 2) * 7;
+    const centerY = liquidBottom - 5 - (glow % 2) * 7;
     context.fillStyle = palette.caustic;
     context.beginPath();
     context.ellipse(centerX, centerY, 24 + (glow % 3) * 8, 5 + (glow % 2) * 2, -0.16 + glow * 0.05, 0, Math.PI * 2);
@@ -205,7 +208,7 @@ function drawReservoir(
     const seedX = ((index * 47) % 97) / 97;
     const seedY = ((index * 29 + 11) % 101) / 101;
     const particleY = baseY + 8 + seedY * Math.max(0, liquidDepth - 16);
-    if (particleY >= insetTop + innerHeight) continue;
+    if (particleY >= liquidBottom) continue;
     context.globalAlpha = 0.11 + (index % 5) * 0.028;
     context.fillStyle = "#eaffff";
     context.beginPath();
@@ -248,7 +251,7 @@ function drawReservoir(
     const bubbleX = insetX + 18 + seed * (innerWidth - 36);
     const depth = 0.18 + ((index * 0.37) % 0.72);
     const travel = active ? ((time * (0.003 + index * 0.00013) + index * 17) % Math.max(10, liquidDepth - 8)) : depth * liquidDepth;
-    const bubbleY = insetTop + innerHeight - 7 - travel;
+    const bubbleY = liquidBottom - 7 - travel;
     if (bubbleY <= baseY + 7) continue;
     const radius = 0.7 + (index % 3) * 0.55;
     context.beginPath();
@@ -258,7 +261,7 @@ function drawReservoir(
     context.stroke();
   }
 
-  const frontLens = context.createLinearGradient(0, baseY, width, insetTop + innerHeight);
+  const frontLens = context.createLinearGradient(0, baseY, width, liquidBottom);
   frontLens.addColorStop(0, "rgba(230, 252, 255, .055)");
   frontLens.addColorStop(0.34, "rgba(255, 255, 255, 0)");
   frontLens.addColorStop(0.72, "rgba(167, 245, 233, .045)");

@@ -26,6 +26,9 @@ export const AMBIENT_BREEZE = {
   activeStrength: 0.18,
 } as const;
 
+/** Logical pixels reserved below the chamber for the sinking liquid tail. */
+export const FLUID_TAIL_EXTENSION = 14;
+
 /**
  * A sub-pixel, long-wavelength breeze for an otherwise settled surface.
  * Drag-driven shallow-water motion remains separate and visually dominant.

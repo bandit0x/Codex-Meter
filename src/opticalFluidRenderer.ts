@@ -1,4 +1,4 @@
-import { AMBIENT_BREEZE } from "./fluidPhysics";
+import { AMBIENT_BREEZE, FLUID_TAIL_EXTENSION } from "./fluidPhysics";
 
 export const OPTICAL_SURFACE_NODE_COUNT = 56;
 
@@ -160,6 +160,7 @@ void main() {
   vec2 fragment = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
   vec2 uv = fragment / uResolution;
   float ratio = uPixelRatio;
+  float extension = ${FLUID_TAIL_EXTENSION.toFixed(1)} * ratio;
   // Match the CSS chamber edge; a second inset would read as an unwanted inner frame.
   float inset = 0.0;
   float frameInset = -18.0 * ratio;
@@ -198,8 +199,8 @@ void main() {
   );
 
   float normalizedX = saturate((fragment.x - inset) / max(uResolution.x - inset * 2.0, 1.0));
-  float innerHeight = uResolution.y - inset * 2.0;
-  float baseSurface = inset + innerHeight * (1.0 - saturate(uRemaining / 100.0));
+  float chamberHeight = max(uResolution.y - extension - inset * 2.0, 1.0);
+  float baseSurface = inset + chamberHeight * (1.0 - saturate(uRemaining / 100.0));
   float surfaceY = baseSurface + freeSurfaceOffset(normalizedX) * ratio;
   float surfaceStep = 0.009;
   float surfaceBefore = freeSurfaceOffset(normalizedX - surfaceStep);
@@ -209,7 +210,7 @@ void main() {
   vec2 surfaceNormal = normalize(vec2(-surfaceSlope * 2.6, -1.0));
   float surfaceRefraction = surfaceNormal.x * mix(3.0, 7.5, uActive) * ratio;
   float liquidMask = smoothstep(surfaceY - 0.9 * ratio, surfaceY + 0.9 * ratio, fragment.y);
-  float liquidDepthPx = max(inset + innerHeight - surfaceY, 1.0);
+  float liquidDepthPx = max(uResolution.y - inset - surfaceY, 1.0);
   float depth = saturate((fragment.y - surfaceY) / liquidDepthPx);
 
   vec3 color = refracted;
