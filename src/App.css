@@ -188,23 +188,6 @@ input:focus-visible {
 
 .quota-grid { gap: 8px; }
 
-.refractive-seam {
-  position: absolute;
-  z-index: 8;
-  top: 13px;
-  bottom: 5px;
-  left: 50%;
-  width: 8px;
-  transform: translateX(-50%);
-  pointer-events: none;
-  background: linear-gradient(90deg, rgba(1, 9, 15, 0.92), rgba(44, 118, 139, 0.34) 48%, rgba(1, 9, 15, 0.92));
-  box-shadow:
-    inset 0 0 0 1px rgba(116, 210, 221, 0.16),
-    0 0 12px rgba(21, 105, 130, 0.18);
-  opacity: 0.92;
-  display: block;
-}
-
 .quota-cell {
   --accent: var(--cyan);
   position: relative;
@@ -216,8 +199,10 @@ input:focus-visible {
     radial-gradient(90% 64% at 50% -8%, rgba(178, 229, 248, 0.16), transparent 56%),
     linear-gradient(180deg, rgba(12, 31, 45, 0.98), rgba(2, 12, 21, 0.99));
   box-shadow:
+    0 0 0 4px rgba(11, 54, 70, 0.62),
+    0 0 9px rgba(25, 115, 139, 0.16),
     0 5px 12px rgba(0, 3, 8, 0.44),
-    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 1px 2px rgba(179, 230, 246, 0.14),
     inset 0 -10px 20px rgba(0, 3, 9, 0.62);
 }
 
@@ -248,8 +233,6 @@ input:focus-visible {
   pointer-events: none;
   border-radius: inherit;
   box-shadow:
-    0 0 0 2px rgba(22, 83, 104, 0.58),
-    0 0 7px rgba(29, 122, 150, 0.18),
     inset 0 15px 22px rgba(205, 242, 255, 0.14),
     inset 0 -18px 26px rgba(0, 3, 10, 0.72);
 }

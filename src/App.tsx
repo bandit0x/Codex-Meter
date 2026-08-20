@@ -649,7 +649,6 @@ export function App({
             )}
             {snapshot && (
               <div className="quota-grid">
-                <span className="refractive-seam" aria-hidden="true" />
                 <QuotaCell label="5 HOUR" window={snapshot.fiveHour} accent="cyan" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
                 <QuotaCell label="WEEK" window={snapshot.weekly} accent="mint" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
               </div>
