@@ -186,6 +186,8 @@ input:focus-visible {
   gap: 8px;
 }
 
+.quota-grid { gap: 0; }
+
 .refractive-seam {
   position: absolute;
   z-index: 8;
@@ -230,8 +232,7 @@ input:focus-visible {
   pointer-events: none;
   border-radius: inherit;
   background:
-    linear-gradient(180deg, rgba(244, 253, 255, 0.16), transparent 8% 80%, rgba(189, 242, 255, 0.075)),
-    linear-gradient(90deg, rgba(227, 251, 255, 0.09), transparent 7% 92%, rgba(220, 255, 247, 0.075));
+    linear-gradient(180deg, rgba(244, 253, 255, 0.16), transparent 8% 80%, rgba(189, 242, 255, 0.075));
   mix-blend-mode: screen;
 }
 
