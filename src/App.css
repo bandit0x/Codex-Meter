@@ -324,13 +324,77 @@ input:focus-visible {
 .quota-cell--unavailable .reset-time { color: #b8cbd5; }
 
 .scale-line {
-  width: 78%;
-  height: 9px;
-  margin-top: 5px;
+  position: absolute;
+  top: 22px;
+  right: 10px;
+  bottom: 20px;
+  width: 23px;
+  margin: 0;
   opacity: 0.72;
-  border-bottom: 1px solid var(--accent);
-  background: repeating-linear-gradient(90deg, transparent 0 8px, color-mix(in srgb, var(--accent) 68%, white) 8px 9px);
-  mask-image: linear-gradient(to bottom, transparent 0 3px, #000 3px);
+}
+
+.scale-line__axis {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 76%, white) 10% 90%,
+    transparent
+  );
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.scale-line__ticks {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  bottom: 2px;
+  width: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.scale-tick {
+  display: block;
+  width: 8px;
+  height: 1px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 68%, white);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.scale-tick--major {
+  width: 16px;
+  height: 2px;
+}
+
+.scale-line__marker {
+  position: absolute;
+  right: 0;
+  width: 22px;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 74%, white);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.scale-line__marker::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #f5ffff;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 88%, white);
 }
 
 .quota-cell--unavailable .scale-line { opacity: 0.2; }

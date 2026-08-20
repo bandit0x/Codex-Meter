@@ -154,6 +154,8 @@ function Icon({ name }: { name: "chevron" | "settings" | "close" }) {
   );
 }
 
+const SCALE_TICKS = Array.from({ length: 21 }, (_, index) => index);
+
 function QuotaCell({
   label,
   window,
@@ -192,7 +194,18 @@ function QuotaCell({
         <span className="reset-time">
           {window ? `Resets ${formatReset(window.resetsAt, label === "WEEK")}` : "Data unavailable"}
         </span>
-        <div className="scale-line" aria-hidden="true" />
+        <div className="scale-line" aria-hidden="true">
+          <span className="scale-line__axis" />
+          <span className="scale-line__ticks">
+            {SCALE_TICKS.map((index) => (
+              <span
+                className={index % 5 === 0 ? "scale-tick scale-tick--major" : "scale-tick"}
+                key={index}
+              />
+            ))}
+          </span>
+          <span className="scale-line__marker" style={{ top: `${100 - remaining}%` }} />
+        </div>
       </div>
     </section>
   );
