@@ -178,6 +178,12 @@ input:focus-visible {
 
 .quota-cell {
   --accent: var(--cyan);
+  --bezel-left: -6px;
+  --bezel-right: -2px;
+  --bezel-radius: 31px 25px 29px 31px;
+  --bezel-outer-x: 0%;
+  --bezel-center-x: 100%;
+  --center-wall-depth: inset -12px 0 18px rgba(28, 123, 151, 0.22);
   position: relative;
   min-width: 0;
   overflow: visible;
@@ -196,6 +202,12 @@ input:focus-visible {
 
 .quota-cell--mint {
   --accent: var(--mint);
+  --bezel-left: -2px;
+  --bezel-right: -6px;
+  --bezel-radius: 25px 31px 31px 29px;
+  --bezel-outer-x: 100%;
+  --bezel-center-x: 0%;
+  --center-wall-depth: inset 12px 0 18px rgba(36, 125, 119, 0.22);
   border-radius: 19px 25px 25px 19px;
 }
 
@@ -213,21 +225,28 @@ input:focus-visible {
 
 .quota-cell--mint::before { border-radius: inherit; }
 
-.quota-cell__lower-bezel {
+.quota-cell__bezel {
   position: absolute;
   z-index: 4;
-  right: 3px;
-  bottom: -8px;
-  left: 3px;
-  height: 36px;
+  top: -6px;
+  right: var(--bezel-right);
+  bottom: -14px;
+  left: var(--bezel-left);
   pointer-events: none;
-  border-radius: 0 0 22px 22px;
+  padding: 8px;
+  border-radius: var(--bezel-radius);
   background:
-    radial-gradient(100% 145% at 50% 115%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 68%),
-    linear-gradient(180deg, transparent 0%, rgba(4, 24, 34, 0.22) 44%, rgba(2, 12, 20, 0.62) 100%);
-  box-shadow:
-    inset 0 -4px 10px rgba(0, 4, 12, 0.38),
-    0 4px 10px color-mix(in srgb, var(--accent) 22%, transparent);
+    radial-gradient(86% 74% at var(--bezel-outer-x) 2%, rgba(226, 249, 255, 0.4), transparent 55%),
+    radial-gradient(64% 115% at var(--bezel-center-x) 48%, color-mix(in srgb, var(--accent) 31%, transparent), transparent 76%),
+    radial-gradient(100% 76% at 50% 100%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 72%),
+    linear-gradient(154deg, rgba(52, 157, 187, 0.28), rgba(4, 27, 40, 0.74) 44%, rgba(29, 110, 130, 0.32) 76%, rgba(1, 15, 25, 0.78));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter:
+    drop-shadow(0 3px 5px rgba(0, 4, 12, 0.7))
+    drop-shadow(0 2px 7px color-mix(in srgb, var(--accent) 19%, transparent));
+  opacity: 0.86;
 }
 
 .quota-cell::after {
@@ -239,8 +258,8 @@ input:focus-visible {
   border-radius: inherit;
   box-shadow:
     inset 0 15px 22px rgba(205, 242, 255, 0.14),
-    inset 0 -2px 0 rgba(78, 174, 195, 0.22),
-    inset 0 -14px 24px rgba(0, 3, 10, 0.42);
+    inset 0 -14px 24px rgba(0, 3, 10, 0.42),
+    var(--center-wall-depth);
 }
 
 .quota-cell--mint::after { border-radius: inherit; }
@@ -405,16 +424,8 @@ input:focus-visible {
   justify-content: space-between;
   gap: 14px;
   isolation: isolate;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 190% at 14% -40%, rgba(162, 231, 244, 0.22), transparent 55%),
-    radial-gradient(90% 150% at 92% 120%, rgba(71, 215, 190, 0.15), transparent 60%),
-    linear-gradient(180deg, rgba(47, 120, 145, 0.24), rgba(6, 30, 42, 0.48) 48%, rgba(1, 8, 14, 0.66));
-  backdrop-filter: blur(15px) saturate(145%);
-  -webkit-backdrop-filter: blur(15px) saturate(145%);
-  box-shadow:
-    inset 0 0 16px rgba(85, 209, 232, 0.06),
-    inset 0 -12px 20px rgba(0, 4, 12, 0.44);
+  overflow: visible;
+  background: transparent;
   color: #b9cfdb;
   font-size: 13px;
   letter-spacing: 0.018em;
@@ -427,15 +438,20 @@ input:focus-visible {
   content: "";
   position: absolute;
   z-index: 0;
-  inset: 0;
+  inset: -16px 0 0;
   pointer-events: none;
-  border-radius: inherit;
+  border-radius: 24px 24px 22px 22px;
   background:
-    radial-gradient(58% 110% at 18% 0, rgba(91, 204, 224, 0.2), transparent 72%),
-    radial-gradient(58% 110% at 82% 0, rgba(85, 220, 198, 0.16), transparent 72%),
-    linear-gradient(180deg, rgba(116, 205, 220, 0.1), transparent 48%),
-    linear-gradient(118deg, rgba(236, 253, 255, 0.07), transparent 24% 72%, rgba(112, 218, 226, 0.05));
-  mix-blend-mode: screen;
+    radial-gradient(74% 150% at 14% -16%, rgba(162, 231, 244, 0.22), transparent 62%),
+    radial-gradient(66% 138% at 88% 112%, rgba(71, 215, 190, 0.15), transparent 68%),
+    radial-gradient(58% 110% at 18% 0, rgba(91, 204, 224, 0.17), transparent 74%),
+    radial-gradient(58% 110% at 82% 0, rgba(85, 220, 198, 0.14), transparent 74%),
+    linear-gradient(180deg, rgba(47, 120, 145, 0.22), rgba(6, 30, 42, 0.48) 52%, rgba(1, 8, 14, 0.66));
+  backdrop-filter: blur(15px) saturate(145%);
+  -webkit-backdrop-filter: blur(15px) saturate(145%);
+  box-shadow:
+    inset 0 0 16px rgba(85, 209, 232, 0.06),
+    inset 0 -12px 20px rgba(0, 4, 12, 0.44);
 }
 
 .status-footer > * { z-index: 2; }

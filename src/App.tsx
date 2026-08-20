@@ -185,7 +185,7 @@ function QuotaCell({
           reducedMotion={reducedMotion}
         />
       )}
-      <span className="quota-cell__lower-bezel" aria-hidden="true" />
+      <span className="quota-cell__bezel" aria-hidden="true" />
       <div className="cell-content">
         <span className="quota-label">{label}</span>
         <div className="capacity-value">
