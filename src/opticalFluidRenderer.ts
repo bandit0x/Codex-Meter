@@ -160,10 +160,12 @@ void main() {
   vec2 fragment = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
   vec2 uv = fragment / uResolution;
   float ratio = uPixelRatio;
-  float inset = 4.5 * ratio;
+  // Match the CSS chamber edge; a second inset would read as an unwanted inner frame.
+  float inset = 0.0;
+  float frameInset = -18.0 * ratio;
   float radius = 22.0 * ratio;
   vec2 center = uResolution * 0.5;
-  vec2 halfSize = uResolution * 0.5 - vec2(inset);
+  vec2 halfSize = uResolution * 0.5 - vec2(frameInset);
   vec2 local = fragment - center;
   float sd = roundedRectSdf(local, halfSize, radius);
 
