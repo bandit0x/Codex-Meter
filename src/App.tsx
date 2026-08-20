@@ -185,6 +185,7 @@ function QuotaCell({
           reducedMotion={reducedMotion}
         />
       )}
+      <span className="quota-cell__lower-bezel" aria-hidden="true" />
       <div className="cell-content">
         <span className="quota-label">{label}</span>
         <div className="capacity-value">
@@ -635,7 +636,6 @@ export function App({
           reducedMotion={preferences.reducedMotion}
           opacity={preferences.opacity}
         />
-        <span className="rim-glint" aria-hidden="true" />
         {routeBlocked && <span className="route-alert-halo" aria-hidden="true" />}
         <div className="drag-rail" aria-hidden="true" />
 
