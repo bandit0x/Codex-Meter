@@ -94,6 +94,8 @@ CodexMeter-<版本>-win-x64/
 4. 点击右下角箭头展开详情、刷新、穿透或显示设置
 5. 关闭浮窗后，通过 Windows 通知区域图标重新显示或退出程序
 
+不要直接双击 `src-tauri\target\debug\codex-credits-view.exe`；它是开发版，会访问 `localhost:1420`，必须通过 `npm.cmd run tauri:dev` 启动并保持 Vite 服务运行。日常使用请从便携包、安装器或桌面 `Codex Meter` 快捷方式启动。
+
 应用不会自动开机启动。重新启动 Windows 后，需要再次手动运行 `Codex Meter.exe`。
 
 ## 🔐 数据与隐私
@@ -150,17 +152,16 @@ cargo test --manifest-path src-tauri\Cargo.toml
 先下载并验证 Microsoft WebView2 Fixed Version Runtime：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
+pwsh.exe -NoProfile -ExecutionPolicy Bypass `
   -File scripts\fetch-webview2-fixed-runtime.ps1
 ```
 
 然后构建应用并生成便携目录：
 
 ```powershell
-npm.cmd run tauri:build
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
+pwsh.exe -NoProfile -ExecutionPolicy Bypass `
   -File scripts\package-portable.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass `
+pwsh.exe -NoProfile -ExecutionPolicy Bypass `
   -File scripts\verify-portable-brand.ps1
 ```
 

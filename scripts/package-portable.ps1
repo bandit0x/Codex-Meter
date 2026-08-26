@@ -41,6 +41,11 @@ if ($webviewSignature.Status -ne "Valid" -or $webviewSignature.SignerCertificate
     throw "WebView2 runtime signature is not a valid Microsoft signature."
 }
 
+& npm.cmd run tauri:build
+if ($LASTEXITCODE -ne 0) {
+    throw "Tauri production build failed with exit code $LASTEXITCODE."
+}
+
 if (Test-Path -LiteralPath $outputRoot) {
     Remove-Item -LiteralPath $outputRoot -Recurse -Force
 }
