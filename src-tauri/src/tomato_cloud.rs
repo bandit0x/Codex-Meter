@@ -12,10 +12,34 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(2);
 const REGISTRY_TIMEOUT: Duration = Duration::from_secs(2);
-const PROBE_TIMEOUT: Duration = Duration::from_secs(4);
+const HEALTH_PROBE_TIMEOUT: Duration = Duration::from_secs(9);
+const COUNTRY_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
+const HEALTH_CONNECT_TIMEOUT: &str = "5";
+const HEALTH_MAX_TIME: &str = "8";
+const COUNTRY_CONNECT_TIMEOUT: &str = "1";
+const COUNTRY_MAX_TIME: &str = "2";
 const COUNTRY_ENDPOINT: &str = "https://api.country.is/";
-const FALLBACK_ENDPOINT: &str = "https://www.gstatic.com/generate_204";
+const HEALTH_ENDPOINT: &str = "https://www.gstatic.com/generate_204";
 const REQUIRED_PROCESSES: [&str; 2] = ["tomato-cloud.exe", "tomato-dataplane-agent.exe"];
+
+#[derive(Clone, Copy)]
+struct ProbeSettings {
+    connect_timeout: &'static str,
+    max_time: &'static str,
+    command_timeout: Duration,
+}
+
+const HEALTH_PROBE: ProbeSettings = ProbeSettings {
+    connect_timeout: HEALTH_CONNECT_TIMEOUT,
+    max_time: HEALTH_MAX_TIME,
+    command_timeout: HEALTH_PROBE_TIMEOUT,
+};
+
+const COUNTRY_PROBE: ProbeSettings = ProbeSettings {
+    connect_timeout: COUNTRY_CONNECT_TIMEOUT,
+    max_time: COUNTRY_MAX_TIME,
+    command_timeout: COUNTRY_PROBE_TIMEOUT,
+};
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -47,7 +71,11 @@ impl TomatoCloudService {
     }
 
     pub async fn read_connection(&self) -> TomatoConnectionSnapshot {
-        let country_code = self.last_country_code.lock().ok().and_then(|value| value.clone());
+        let country_code = self
+            .last_country_code
+            .lock()
+            .ok()
+            .and_then(|value| value.clone());
 
         let running_processes = match read_running_processes().await {
             Ok(processes) => processes,
@@ -78,7 +106,19 @@ impl TomatoCloudService {
             );
         }
 
-        match route_probe(&proxy, COUNTRY_ENDPOINT).await {
+        let health_probe = match route_probe(&proxy, HEALTH_ENDPOINT, HEALTH_PROBE).await {
+            Ok(probe) if (200..300).contains(&probe.http_status) => probe,
+            Ok(probe) => {
+                return TomatoConnectionSnapshot::blocked(
+                    country_code,
+                    Diagnostic::new("CRV-404", "TomatoCloud route is unavailable")
+                        .with_detail(format!("Health probe returned HTTP {}", probe.http_status)),
+                );
+            }
+            Err(diagnostic) => return TomatoConnectionSnapshot::blocked(country_code, diagnostic),
+        };
+
+        let country_code = match route_probe(&proxy, COUNTRY_ENDPOINT, COUNTRY_PROBE).await {
             Ok(probe) if probe.http_status == 200 => {
                 let country_code = country_code_from_body(&probe.body).or(country_code);
                 if let Some(country_code) = country_code.as_ref() {
@@ -86,22 +126,12 @@ impl TomatoCloudService {
                         *remembered = Some(country_code.clone());
                     }
                 }
-                TomatoConnectionSnapshot::healthy(country_code, probe.latency_ms)
+                country_code
             }
-            _ => match route_probe(&proxy, FALLBACK_ENDPOINT).await {
-                Ok(probe) if (200..300).contains(&probe.http_status) => {
-                    TomatoConnectionSnapshot::healthy(country_code, probe.latency_ms)
-                }
-                Ok(probe) => TomatoConnectionSnapshot::blocked(
-                    country_code,
-                    Diagnostic::new("CRV-404", "TomatoCloud route is unavailable").with_detail(format!(
-                        "Route probe returned HTTP {}",
-                        probe.http_status
-                    )),
-                ),
-                Err(diagnostic) => TomatoConnectionSnapshot::blocked(country_code, diagnostic),
-            },
-        }
+            _ => country_code,
+        };
+
+        TomatoConnectionSnapshot::healthy(country_code, health_probe.latency_ms)
     }
 }
 
@@ -146,7 +176,10 @@ async fn read_running_processes() -> Result<HashSet<String>, Diagnostic> {
     )
     .await?;
     if !output.status.success() {
-        return Err(Diagnostic::new("CRV-400", "Unable to inspect the TomatoCloud runtime"));
+        return Err(Diagnostic::new(
+            "CRV-400",
+            "Unable to inspect the TomatoCloud runtime",
+        ));
     }
     Ok(parse_tasklist(&String::from_utf8_lossy(&output.stdout)))
 }
@@ -167,9 +200,13 @@ async fn read_system_proxy() -> Result<String, Diagnostic> {
         "TomatoCloud local proxy is unavailable",
     )
     .await?;
-    if !output.status.success() || !registry_flag_is_enabled(&String::from_utf8_lossy(&output.stdout)) {
-        return Err(Diagnostic::new("CRV-402", "TomatoCloud local proxy is unavailable")
-            .with_detail("Windows system proxy is not enabled"));
+    if !output.status.success()
+        || !registry_flag_is_enabled(&String::from_utf8_lossy(&output.stdout))
+    {
+        return Err(
+            Diagnostic::new("CRV-402", "TomatoCloud local proxy is unavailable")
+                .with_detail("Windows system proxy is not enabled"),
+        );
     }
 
     let output = command_output(
@@ -188,8 +225,10 @@ async fn read_system_proxy() -> Result<String, Diagnostic> {
     )
     .await?;
     if !output.status.success() {
-        return Err(Diagnostic::new("CRV-402", "TomatoCloud local proxy is unavailable")
-            .with_detail("Windows system proxy does not provide a server"));
+        return Err(
+            Diagnostic::new("CRV-402", "TomatoCloud local proxy is unavailable")
+                .with_detail("Windows system proxy does not provide a server"),
+        );
     }
 
     extract_proxy_server(&String::from_utf8_lossy(&output.stdout)).ok_or_else(|| {
@@ -198,7 +237,11 @@ async fn read_system_proxy() -> Result<String, Diagnostic> {
     })
 }
 
-async fn route_probe(proxy: &str, endpoint: &str) -> Result<RouteProbeResult, Diagnostic> {
+async fn route_probe(
+    proxy: &str,
+    endpoint: &str,
+    settings: ProbeSettings,
+) -> Result<RouteProbeResult, Diagnostic> {
     let proxy_url = format!("http://{proxy}");
     let output = command_output(
         Command::new("curl.exe")
@@ -210,9 +253,9 @@ async fn route_probe(proxy: &str, endpoint: &str) -> Result<RouteProbeResult, Di
                 "--write-out",
                 "\n%{http_code} %{time_total}",
                 "--connect-timeout",
-                "2",
+                settings.connect_timeout,
                 "--max-time",
-                "3.5",
+                settings.max_time,
                 "--retry",
                 "0",
                 "--proxy",
@@ -221,7 +264,7 @@ async fn route_probe(proxy: &str, endpoint: &str) -> Result<RouteProbeResult, Di
             ])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null()),
-        PROBE_TIMEOUT,
+        settings.command_timeout,
         "CRV-404",
         "TomatoCloud route is unavailable",
     )
@@ -277,7 +320,11 @@ fn extract_proxy_server(raw: &str) -> Option<String> {
                 .split(';')
                 .find_map(|segment| segment.trim().strip_prefix("http="))
         });
-    protocol_specific.or(Some(value)).map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned)
+    protocol_specific
+        .or(Some(value))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
 }
 
 fn is_loopback_proxy(proxy: &str) -> bool {
@@ -290,7 +337,8 @@ fn is_loopback_proxy(proxy: &str) -> bool {
         return false;
     };
     let host = host.trim_matches(['[', ']']);
-    matches!(host, "127.0.0.1" | "localhost" | "::1") && port.parse::<u16>().is_ok_and(|port| port > 0)
+    matches!(host, "127.0.0.1" | "localhost" | "::1")
+        && port.parse::<u16>().is_ok_and(|port| port > 0)
 }
 
 fn parse_curl_output(raw: &str) -> Option<RouteProbeResult> {
@@ -311,9 +359,16 @@ fn parse_curl_output(raw: &str) -> Option<RouteProbeResult> {
 fn country_code_from_body(body: &str) -> Option<String> {
     let value = serde_json::from_str::<serde_json::Value>(body).ok()?;
     let country = value.get("country")?.as_str()?.trim().to_ascii_uppercase();
-    let normalized = if country == "GB" { "UK".to_owned() } else { country };
-    (normalized.len() == 2 && normalized.chars().all(|character| character.is_ascii_alphabetic()))
-        .then_some(normalized)
+    let normalized = if country == "GB" {
+        "UK".to_owned()
+    } else {
+        country
+    };
+    (normalized.len() == 2
+        && normalized
+            .chars()
+            .all(|character| character.is_ascii_alphabetic()))
+    .then_some(normalized)
 }
 
 fn now_ms() -> u64 {

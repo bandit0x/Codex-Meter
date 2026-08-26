@@ -55,6 +55,7 @@ const REFRESH_INTERVAL_MS = 60_000;
 const CLICK_THROUGH_DURATION_MS = 10_000;
 const ROUTE_HEALTHY_INTERVAL_MS = 5_000;
 const ROUTE_BLOCKED_INTERVAL_MS = 1_000;
+const ROUTE_FAILURE_THRESHOLD = 2;
 
 function formatPercent(value: number): string {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
@@ -127,6 +128,27 @@ function routeStatusText(route: TomatoConnectionSnapshot | null): string {
   const country = route.countryCode ?? "—";
   const latency = route.latencyMs === null ? "—" : `${route.latencyMs}`;
   return `${country} · ${latency} ms`;
+}
+
+export interface RouteGateState {
+  visible: TomatoConnectionSnapshot | null;
+  consecutiveFailures: number;
+}
+
+export function applyRouteGate(
+  current: RouteGateState,
+  next: TomatoConnectionSnapshot,
+): RouteGateState {
+  if (next.state === "healthy") {
+    return { visible: next, consecutiveFailures: 0 };
+  }
+
+  const consecutiveFailures = current.consecutiveFailures + 1;
+  if (consecutiveFailures < ROUTE_FAILURE_THRESHOLD) {
+    return { visible: current.visible, consecutiveFailures };
+  }
+
+  return { visible: next, consecutiveFailures };
 }
 
 function Icon({ name }: { name: "chevron" | "settings" | "close" }) {
@@ -319,6 +341,7 @@ export function App({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [routeConnection, setRouteConnection] = useState<TomatoConnectionSnapshot | null>(null);
   const routeProbeInFlightRef = useRef<Promise<TomatoConnectionSnapshot> | null>(null);
+  const routeGateRef = useRef<RouteGateState>({ visible: null, consecutiveFailures: 0 });
   const [controlMessage, setControlMessage] = useState<string | null>(null);
   const [fluidMotion, setFluidMotion] = useState<FluidMotionSample>(IDLE_FLUID_MOTION);
   const [isWindowDragging, setIsWindowDragging] = useState(false);
@@ -370,7 +393,9 @@ export function App({
     const probe = loadTomatoConnection()
       .catch(normalizeRouteFailure)
       .then((connection) => {
-        setRouteConnection(connection);
+        const nextGate = applyRouteGate(routeGateRef.current, connection);
+        routeGateRef.current = nextGate;
+        setRouteConnection(nextGate.visible);
         return connection;
       })
       .finally(() => {

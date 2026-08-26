@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { App } from "./App";
+import { App, applyRouteGate } from "./App";
 import type { CapacitySnapshot, TomatoConnectionSnapshot } from "./capacityTypes";
 
 const inertPreferences = {
@@ -47,7 +47,30 @@ const blockedTomato: TomatoConnectionSnapshot = {
   diagnostic: { code: "CRV-404", message: "TomatoCloud route is unavailable", detail: null },
 };
 
+const healthyTomato: TomatoConnectionSnapshot = {
+  state: "healthy",
+  countryCode: "UK",
+  latencyMs: 42,
+  observedAtMs: 1_800_000_000_000,
+  diagnostic: null,
+};
+
 describe("Codex capacity overlay", () => {
+  it("requires two consecutive blocked probes before replacing a healthy route", () => {
+    const initial = { visible: healthyTomato, consecutiveFailures: 0 };
+    const firstFailure = applyRouteGate(initial, blockedTomato);
+    expect(firstFailure.visible).toBe(healthyTomato);
+    expect(firstFailure.consecutiveFailures).toBe(1);
+
+    const secondFailure = applyRouteGate(firstFailure, blockedTomato);
+    expect(secondFailure.visible).toBe(blockedTomato);
+    expect(secondFailure.consecutiveFailures).toBe(2);
+
+    const recovered = applyRouteGate(secondFailure, healthyTomato);
+    expect(recovered.visible).toBe(healthyTomato);
+    expect(recovered.consecutiveFailures).toBe(0);
+  });
+
   it("keeps both quota windows present with equal loading treatment", () => {
     render(<App {...inertPreferences} loadSnapshot={() => new Promise(() => undefined)} />);
 
@@ -76,7 +99,10 @@ describe("Codex capacity overlay", () => {
       />,
     );
 
-    expect(await screen.findByText("TomatoCloud route is unavailable")).toBeInTheDocument();
+    await waitFor(
+      () => expect(screen.getByText("TomatoCloud route is unavailable")).toBeInTheDocument(),
+      { timeout: 3_000 },
+    );
     expect(screen.getByText("Route blocked · retrying")).toBeInTheDocument();
     expect(screen.getAllByRole("group")).toHaveLength(2);
   });
@@ -92,7 +118,10 @@ describe("Codex capacity overlay", () => {
       />,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("TomatoCloud route is unavailable");
+    await waitFor(
+      () => expect(screen.getByRole("alert")).toHaveTextContent("TomatoCloud route is unavailable"),
+      { timeout: 3_000 },
+    );
     expect(screen.getByRole("status", { name: /TomatoCloud Route blocked/ })).toBeInTheDocument();
     expect(container.querySelector(".glass-shell--route-blocked")).toBeInTheDocument();
   });
