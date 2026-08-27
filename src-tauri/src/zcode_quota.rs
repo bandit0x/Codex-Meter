@@ -252,10 +252,11 @@ fn quota_url_from_base_url(base_url: &str) -> Option<String> {
     Some(format!("{scheme}://{authority}{QUOTA_PATH}"))
 }
 
-async fn fetch_quota_body(request: &QuotaRequest) -> Result<String, Diagnostic> {
-    let network_failure =
-        || Diagnostic::new("CRV-504", "ZCode 配额服务不可达").with_detail("curl 无法访问配额端点");
+fn zcode_network_failure(detail: impl Into<String>) -> Diagnostic {
+    Diagnostic::new("CRV-504", "ZCode 配额服务不可达").with_detail(detail)
+}
 
+async fn fetch_quota_body(request: &QuotaRequest) -> Result<String, Diagnostic> {
     let mut command = Command::new("curl.exe");
     command.args([
         "--silent",
@@ -278,12 +279,13 @@ async fn fetch_quota_body(request: &QuotaRequest) -> Result<String, Diagnostic> 
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null());
+    command.kill_on_drop(true);
     #[cfg(target_os = "windows")]
     command.creation_flags(CREATE_NO_WINDOW);
 
     let mut child = command
         .spawn()
-        .map_err(|error| network_failure().with_detail(error.to_string()))?;
+        .map_err(|error| zcode_network_failure(error.to_string()))?;
     // Authorization 头经 stdin 配置传入，key 不进入进程命令行
     let stdin_config = format!("header = \"Authorization: {}\"\n", request.api_key);
     if let Some(mut stdin) = child.stdin.take() {
@@ -292,17 +294,32 @@ async fn fetch_quota_body(request: &QuotaRequest) -> Result<String, Diagnostic> 
     }
     let output = timeout(COMMAND_TIMEOUT, child.wait_with_output())
         .await
-        .map_err(|_| network_failure().with_detail("请求超时"))?
-        .map_err(|error| network_failure().with_detail(error.to_string()))?;
+        .map_err(|_| zcode_network_failure("请求超时"))?
+        .map_err(|error| zcode_network_failure(error.to_string()))?;
 
     let text = String::from_utf8_lossy(&output.stdout);
+    parse_curl_output(output.status.success(), output.status.code(), &text)
+}
+
+fn parse_curl_output(
+    process_succeeded: bool,
+    exit_code: Option<i32>,
+    text: &str,
+) -> Result<String, Diagnostic> {
+    if !process_succeeded {
+        let exit_code = exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "unknown".to_owned());
+        return Err(zcode_network_failure(format!("curl 退出状态: {exit_code}")));
+    }
+
     let (body, status_line) = text
         .rsplit_once('\n')
-        .ok_or_else(|| network_failure().with_detail("curl 未返回 HTTP 状态行"))?;
+        .ok_or_else(|| zcode_network_failure("curl 未返回 HTTP 状态行"))?;
     let status: u16 = status_line
         .trim()
         .parse()
-        .map_err(|_| network_failure().with_detail(format!("无法解析 HTTP 状态: {status_line}")))?;
+        .map_err(|_| zcode_network_failure(format!("无法解析 HTTP 状态: {status_line}")))?;
     if status != 200 {
         let detail: String = body.trim().chars().take(200).collect();
         return Err(Diagnostic::new("CRV-505", "ZCode 配额服务返回异常状态")
@@ -364,14 +381,26 @@ fn to_window(limit: &QuotaLimit) -> Result<ZCodeQuotaWindow, Diagnostic> {
     if !percentage.is_finite() || !(0.0..=100.0).contains(&percentage) {
         return Err(invalid("percentage 超出 0-100 范围"));
     }
+    let Some(next_reset_time) = limit.next_reset_time else {
+        return Err(invalid("配额窗口缺少 nextResetTime"));
+    };
+    let Some(quota_total) = limit.usage else {
+        return Err(invalid("配额窗口缺少 usage"));
+    };
+    let Some(quota_used) = limit.current_value else {
+        return Err(invalid("配额窗口缺少 currentValue"));
+    };
+    let Some(quota_remaining) = limit.remaining else {
+        return Err(invalid("配额窗口缺少 remaining"));
+    };
     Ok(ZCodeQuotaWindow {
         used_percent: percentage,
         remaining_percent: 100.0 - percentage,
         window_duration_mins: window_duration_mins(limit.unit, limit.number),
-        resets_at: limit.next_reset_time.unwrap_or(0) / 1000,
-        quota_total: limit.usage.unwrap_or(0),
-        quota_used: limit.current_value.unwrap_or(0),
-        quota_remaining: limit.remaining.unwrap_or(0),
+        resets_at: next_reset_time / 1000,
+        quota_total,
+        quota_used,
+        quota_remaining,
     })
 }
 
@@ -438,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn non_success_payload_maps_to_CRV_507_with_message() {
+    fn non_success_payload_maps_to_crv_507_with_message() {
         let raw = r#"{"code":500,"msg":"user has no coding plan","success":false}"#;
         let error = parse_quota_payload(raw).expect_err("expect failure");
         assert_eq!(error.code, "CRV-507");
@@ -446,30 +475,68 @@ mod tests {
     }
 
     #[test]
-    fn malformed_json_maps_to_CRV_506() {
+    fn malformed_json_maps_to_crv_506() {
         let error = parse_quota_payload("not json").expect_err("expect failure");
         assert_eq!(error.code, "CRV-506");
     }
 
     #[test]
-    fn missing_data_maps_to_CRV_506() {
+    fn missing_data_maps_to_crv_506() {
         let raw = r#"{"code":200,"success":true}"#;
         let error = parse_quota_payload(raw).expect_err("expect failure");
         assert_eq!(error.code, "CRV-506");
     }
 
     #[test]
-    fn out_of_range_percentage_maps_to_CRV_508() {
+    fn out_of_range_percentage_maps_to_crv_508() {
         let raw = r#"{"code":200,"success":true,"data":{"limits":[{"type":"CREDIT_LIMIT","percentage":140,"nextResetTime":1787810092514}]}}"#;
         let error = parse_quota_payload(raw).expect_err("expect failure");
         assert_eq!(error.code, "CRV-508");
     }
 
     #[test]
-    fn missing_credit_limits_maps_to_CRV_508() {
+    fn missing_credit_limits_maps_to_crv_508() {
         let raw = r#"{"code":200,"success":true,"data":{"limits":[]}}"#;
         let error = parse_quota_payload(raw).expect_err("expect failure");
         assert_eq!(error.code, "CRV-508");
+    }
+
+    #[test]
+    fn missing_next_reset_time_maps_to_crv_508() {
+        let raw = r#"{"code":200,"success":true,"data":{"limits":[{"type":"CREDIT_LIMIT","usage":120,"currentValue":30,"remaining":90,"percentage":25}]}}"#;
+        let error = parse_quota_payload(raw).expect_err("expect failure");
+        assert_eq!(error.code, "CRV-508");
+        assert!(error.detail.expect("detail").contains("nextResetTime"));
+    }
+
+    #[test]
+    fn missing_quota_count_maps_to_crv_508() {
+        let raw = r#"{"code":200,"success":true,"data":{"limits":[{"type":"CREDIT_LIMIT","usage":120,"remaining":90,"percentage":25,"nextResetTime":1787810092514}]}}"#;
+        let error = parse_quota_payload(raw).expect_err("expect failure");
+        assert_eq!(error.code, "CRV-508");
+        assert!(error.detail.expect("detail").contains("currentValue"));
+    }
+
+    #[test]
+    fn curl_process_failure_maps_to_crv_504() {
+        let error = parse_curl_output(false, Some(28), "").expect_err("expect failure");
+        assert_eq!(error.code, "CRV-504");
+        assert!(error.detail.expect("detail").contains("28"));
+    }
+
+    #[test]
+    fn curl_http_failure_maps_to_crv_505() {
+        let error = parse_curl_output(true, Some(0), "{\"error\":\"unauthorized\"}\n401")
+            .expect_err("expect failure");
+        assert_eq!(error.code, "CRV-505");
+        assert!(error.detail.expect("detail").contains("HTTP 401"));
+    }
+
+    #[test]
+    fn successful_curl_output_returns_body_without_status_line() {
+        let body = parse_curl_output(true, Some(0), "{\"code\":200}\n200")
+            .expect("expect successful response");
+        assert_eq!(body, "{\"code\":200}");
     }
 
     #[test]
