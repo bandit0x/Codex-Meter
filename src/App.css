@@ -163,36 +163,36 @@ input:focus-visible {
   --badge-accent: var(--cyan);
   position: absolute;
   z-index: 9;
-  top: 8px;
-  left: 13px;
+  top: 7px;
+  left: 12px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2.5px 8px 2.5px 7px;
-  border: 1px solid color-mix(in srgb, var(--badge-accent) 42%, transparent);
+  gap: 6px;
+  padding: 4px 11px 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--badge-accent) 46%, transparent);
   border-radius: 999px;
   color: var(--badge-accent);
-  background: rgba(3, 14, 24, 0.52);
+  background: rgba(3, 14, 24, 0.58);
   box-shadow:
-    0 2px 9px rgba(0, 3, 8, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 2px 10px rgba(0, 3, 8, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  font-size: 9px;
-  font-weight: 740;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.14em;
   pointer-events: none;
 }
 
 .source-badge--zcode { --badge-accent: var(--amber); }
 
 .source-badge i {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--badge-accent);
-  box-shadow: 0 0 7px var(--badge-accent);
+  box-shadow: 0 0 9px var(--badge-accent);
 }
 
 .quota-grid,

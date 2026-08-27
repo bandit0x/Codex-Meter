@@ -427,7 +427,7 @@ describe("Codex capacity overlay", () => {
 });
 
 describe("dual quota sources", () => {
-  it("defaults to Codex with a CODEX badge when the source preference is absent", async () => {
+  it("defaults to a carousel that starts on Codex when the source preference is absent", async () => {
     render(
       <App
         {...inertPreferences}

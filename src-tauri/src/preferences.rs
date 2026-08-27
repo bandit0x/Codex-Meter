@@ -12,9 +12,9 @@ use crate::capacity::Diagnostic;
 #[serde(rename_all = "lowercase")]
 pub enum MeterSourceSelection {
     #[default]
+    Carousel,
     Codex,
     Zcode,
-    Carousel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -161,15 +161,15 @@ mod tests {
         assert!(!DisplayPreferences::default().reduced_motion);
         assert_eq!(
             DisplayPreferences::default().source,
-            MeterSourceSelection::Codex
+            MeterSourceSelection::Carousel
         );
     }
 
     #[test]
-    fn legacy_preferences_without_source_default_to_codex() {
+    fn legacy_preferences_without_source_default_to_carousel() {
         let raw = r#"{"opacity":0.94,"reducedMotion":true,"x":10,"y":20}"#;
         let preferences: DisplayPreferences =
             serde_json::from_str(raw).expect("legacy preferences");
-        assert_eq!(preferences.source, MeterSourceSelection::Codex);
+        assert_eq!(preferences.source, MeterSourceSelection::Carousel);
     }
 }

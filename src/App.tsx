@@ -69,7 +69,7 @@ const sourceFailureHints: Record<MeterSource, string> = {
 };
 
 function normalizeSourceSelection(value: SourceSelection | undefined): SourceSelection {
-  return value === "zcode" || value === "carousel" ? value : "codex";
+  return value === "zcode" || value === "codex" ? value : "carousel";
 }
 
 const defaultPreferences: DisplayPreferences = {
@@ -77,7 +77,7 @@ const defaultPreferences: DisplayPreferences = {
   reducedMotion: false,
   x: null,
   y: null,
-  source: "codex",
+  source: "carousel",
 };
 const REFRESH_INTERVAL_MS = 60_000;
 const CAROUSEL_INTERVAL_MS = 10_000;
