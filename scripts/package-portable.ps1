@@ -1,12 +1,18 @@
 param(
-    [string]$Version = "0.1.3",
-    [string]$WebView2RuntimePath = ""
+    [string]$Version = "0.1.4",
+    [string]$WebView2RuntimePath = "",
+    [string]$BuildTargetDir = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$sourceExe = Join-Path $projectRoot "src-tauri\target\release\codex-credits-view.exe"
+$buildTargetRoot = if ([string]::IsNullOrWhiteSpace($BuildTargetDir)) {
+    Join-Path $projectRoot "src-tauri\target"
+} else {
+    [System.IO.Path]::GetFullPath($BuildTargetDir)
+}
+$sourceExe = Join-Path $buildTargetRoot "release\codex-credits-view.exe"
 $sourceRuntime = Join-Path $projectRoot "node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe"
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot "release"))
 $outputRoot = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot "CodexMeter-$Version-win-x64"))
@@ -24,9 +30,6 @@ if ([string]::IsNullOrWhiteSpace($WebView2RuntimePath)) {
         Select-Object -First 1 -ExpandProperty FullName
 }
 
-if (-not (Test-Path -LiteralPath $sourceExe -PathType Leaf)) {
-    throw "Release executable not found: $sourceExe"
-}
 if (-not (Test-Path -LiteralPath $sourceRuntime -PathType Leaf)) {
     throw "Pinned official Codex runtime not found. Run npm.cmd install first."
 }
@@ -41,9 +44,26 @@ if ($webviewSignature.Status -ne "Valid" -or $webviewSignature.SignerCertificate
     throw "WebView2 runtime signature is not a valid Microsoft signature."
 }
 
-& npm.cmd run tauri:build
-if ($LASTEXITCODE -ne 0) {
-    throw "Tauri production build failed with exit code $LASTEXITCODE."
+$previousCargoTargetDir = $env:CARGO_TARGET_DIR
+try {
+    if (-not [string]::IsNullOrWhiteSpace($BuildTargetDir)) {
+        $env:CARGO_TARGET_DIR = $buildTargetRoot
+    }
+    & npm.cmd run tauri:build
+    if ($LASTEXITCODE -ne 0) {
+        throw "Tauri production build failed with exit code $LASTEXITCODE."
+    }
+}
+finally {
+    if ($null -eq $previousCargoTargetDir) {
+        Remove-Item Env:CARGO_TARGET_DIR -ErrorAction SilentlyContinue
+    } else {
+        $env:CARGO_TARGET_DIR = $previousCargoTargetDir
+    }
+}
+
+if (-not (Test-Path -LiteralPath $sourceExe -PathType Leaf)) {
+    throw "Release executable not found: $sourceExe"
 }
 
 if (Test-Path -LiteralPath $outputRoot) {

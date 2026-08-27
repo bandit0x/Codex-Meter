@@ -6,7 +6,7 @@
 
 _Windows 11 上的轻量 Codex 配额桌面浮窗。_
 
-当前版本：**0.1.3**
+当前版本：**0.1.4**
 
 ---
 
@@ -45,6 +45,13 @@ _图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK ·
 其他确定性测试状态包括[加载状态](docs/verification/screenshots/v8-half-loading.png)和[窄条状态](docs/verification/screenshots/v8-half-collapsed.png)。这些截图均使用测试夹具生成。
 
 ## 📦 版本更新
+
+### 0.1.4
+
+- 合并 ZCode 编程包额度源：自动发现启用的 coding-plan，读取 5 小时和一周窗口、点数与套餐档位，并支持手动切换和 10 秒轮播
+- ZCode 配额探测对缺失关键字段返回稳定的 `CRV-508`，不再把异常响应显示为 `0 / 0` 或 Epoch 重置时间
+- 区分 `curl` 网络进程失败（`CRV-504`）与配额端点 HTTP 异常（`CRV-505`），请求超时时自动终止子进程
+- 将前端、Tauri、Rust、锁文件和便携包/安装包脚本的版本统一为 `0.1.4`
 
 ### 0.1.3
 

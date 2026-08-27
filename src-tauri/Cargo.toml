@@ -1,6 +1,6 @@
 [package]
 name = "codex-credits-view"
-version = "0.1.3"
+version = "0.1.4"
 description = "A read-only Windows 11 Codex capacity overlay"
 authors = ["Codex Credits View contributors"]
 edition = "2021"

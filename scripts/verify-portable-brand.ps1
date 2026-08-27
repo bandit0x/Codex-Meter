@@ -1,19 +1,37 @@
 param(
-    [string]$Executable = ""
+    [string]$Executable = "",
+    [string]$EvidenceDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
 
+function Get-ChildProcessIds {
+    param(
+        [int]$ParentProcessId
+    )
+
+    $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $ParentProcessId" -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty ProcessId)
+    foreach ($child in $children) {
+        $child
+        Get-ChildProcessIds -ParentProcessId $child
+    }
+}
+
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 if ([string]::IsNullOrWhiteSpace($Executable)) {
-    $Executable = Join-Path $projectRoot "release\CodexMeter-0.1.3-win-x64\Codex Meter.exe"
+    $Executable = Join-Path $projectRoot "release\CodexMeter-0.1.4-win-x64\Codex Meter.exe"
 }
 $Executable = [System.IO.Path]::GetFullPath($Executable)
 if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
     throw "Portable executable not found: $Executable"
 }
 
-$evidenceDirectory = Join-Path $projectRoot "docs\verification\screenshots"
+$evidenceDirectory = if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
+    Join-Path $projectRoot "docs\verification\screenshots"
+} else {
+    [System.IO.Path]::GetFullPath($EvidenceDirectory)
+}
 [System.IO.Directory]::CreateDirectory($evidenceDirectory) | Out-Null
 $profileRoot = Join-Path $env:TEMP ("codex-meter-verification-" + [guid]::NewGuid().ToString("N"))
 [System.IO.Directory]::CreateDirectory($profileRoot) | Out-Null
@@ -56,6 +74,9 @@ try {
     $startInfo.CreateNoWindow = $true
     $startInfo.EnvironmentVariables["APPDATA"] = Join-Path $profileRoot "Roaming"
     $startInfo.EnvironmentVariables["LOCALAPPDATA"] = Join-Path $profileRoot "Local"
+    $startInfo.EnvironmentVariables["USERPROFILE"] = $profileRoot
+    $startInfo.EnvironmentVariables["WEBVIEW2_BROWSER_EXECUTABLE_FOLDER"] = Join-Path (Split-Path -Parent $Executable) "webview2-runtime"
+    $startInfo.EnvironmentVariables["WEBVIEW2_USER_DATA_FOLDER"] = Join-Path $profileRoot "WebView2"
     $process = [System.Diagnostics.Process]::Start($startInfo)
 
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
@@ -68,7 +89,14 @@ try {
 
     $handle = $process.MainWindowHandle
     $text = [System.Text.StringBuilder]::new(256)
-    [void][CodexMeterWindowApi]::GetWindowText($handle, $text, $text.Capacity)
+    do {
+        [void]$text.Clear()
+        [void][CodexMeterWindowApi]::GetWindowText($handle, $text, $text.Capacity)
+        if ($text.ToString() -eq "Codex Meter") { break }
+        Start-Sleep -Milliseconds 200
+        $process.Refresh()
+        if ($process.HasExited) { throw "Codex Meter exited while initializing with code $($process.ExitCode)." }
+    } while ([DateTime]::UtcNow -lt $deadline)
     $rect = [CodexMeterWindowApi+Rect]::new()
     if (-not [CodexMeterWindowApi]::GetWindowRect($handle, [ref]$rect)) { throw "Could not read the window rectangle." }
     if ($text.ToString() -ne "Codex Meter") { throw "Unexpected window title: $($text.ToString())" }
@@ -125,10 +153,28 @@ try {
     }
 }
 finally {
-    if ($null -ne $process -and -not $process.HasExited) {
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    $childProcessIds = @()
+    if ($null -ne $process) {
+        $childProcessIds = @(Get-ChildProcessIds -ParentProcessId $process.Id)
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+    foreach ($childProcessId in $childProcessIds | Sort-Object -Descending) {
+        Stop-Process -Id $childProcessId -Force -ErrorAction SilentlyContinue
     }
     if (Test-Path -LiteralPath $profileRoot) {
-        [System.IO.Directory]::Delete($profileRoot, $true)
+        for ($attempt = 0; $attempt -lt 10 -and (Test-Path -LiteralPath $profileRoot); $attempt++) {
+            try {
+                [System.IO.Directory]::Delete($profileRoot, $true)
+            }
+            catch {
+                if ($attempt -eq 9) {
+                    Write-Warning "Could not remove temporary verification profile: $profileRoot. $($_.Exception.Message)"
+                    break
+                }
+                Start-Sleep -Milliseconds 500
+            }
+        }
     }
 }
