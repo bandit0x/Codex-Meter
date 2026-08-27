@@ -18,11 +18,33 @@ export interface CapacitySnapshot {
   observedAtMs: number;
 }
 
+export interface ZCodeQuotaWindow {
+  usedPercent: number;
+  remainingPercent: number;
+  windowDurationMins: number;
+  resetsAt: number;
+  quotaTotal: number;
+  quotaUsed: number;
+  quotaRemaining: number;
+}
+
+export interface ZCodeQuotaSnapshot {
+  sourceState: "healthy";
+  fiveHour: ZCodeQuotaWindow | null;
+  weekly: ZCodeQuotaWindow | null;
+  planLevel: string | null;
+  observedAtMs: number;
+}
+
+export type MeterSource = "codex" | "zcode";
+export type SourceSelection = MeterSource | "carousel";
+
 export interface DisplayPreferences {
   opacity: number;
   reducedMotion: boolean;
   x: number | null;
   y: number | null;
+  source?: SourceSelection;
 }
 
 export interface Diagnostic {

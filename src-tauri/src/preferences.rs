@@ -8,11 +8,22 @@ use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
 
 use crate::capacity::Diagnostic;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum MeterSourceSelection {
+    #[default]
+    Carousel,
+    Codex,
+    Zcode,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DisplayPreferences {
     pub opacity: f64,
     pub reduced_motion: bool,
+    #[serde(default)]
+    pub source: MeterSourceSelection,
     pub x: Option<i32>,
     pub y: Option<i32>,
 }
@@ -22,6 +33,7 @@ impl Default for DisplayPreferences {
         Self {
             opacity: 0.92,
             reduced_motion: false,
+            source: MeterSourceSelection::default(),
             x: None,
             y: None,
         }
@@ -130,6 +142,7 @@ mod tests {
         let expected = DisplayPreferences {
             opacity: 0.9,
             reduced_motion: true,
+            source: MeterSourceSelection::Carousel,
             x: Some(120),
             y: Some(240),
         };
@@ -146,5 +159,17 @@ mod tests {
     fn default_preferences_match_the_volumetric_lens_contract() {
         assert_eq!(DisplayPreferences::default().opacity, 0.92);
         assert!(!DisplayPreferences::default().reduced_motion);
+        assert_eq!(
+            DisplayPreferences::default().source,
+            MeterSourceSelection::Carousel
+        );
+    }
+
+    #[test]
+    fn legacy_preferences_without_source_default_to_carousel() {
+        let raw = r#"{"opacity":0.94,"reducedMotion":true,"x":10,"y":20}"#;
+        let preferences: DisplayPreferences =
+            serde_json::from_str(raw).expect("legacy preferences");
+        assert_eq!(preferences.source, MeterSourceSelection::Carousel);
     }
 }

@@ -12,7 +12,7 @@ export interface OpticalFluidFrame {
   ambientMotion: boolean;
 }
 
-type Accent = "cyan" | "mint";
+type Accent = "cyan" | "mint" | "amber";
 
 interface OpticalPalette {
   top: [number, number, number];
@@ -36,6 +36,13 @@ const PALETTES: Record<Accent, OpticalPalette> = {
     deep: [0.0, 0.2, 0.18],
     absorption: [1.78, 0.54, 0.39],
     accent: [0.5, 0.98, 0.86],
+  },
+  amber: {
+    top: [1.0, 0.84, 0.54],
+    middle: [0.78, 0.5, 0.047],
+    deep: [0.34, 0.176, 0.0],
+    absorption: [0.34, 0.6, 1.66],
+    accent: [1.0, 0.72, 0.29],
   },
 };
 

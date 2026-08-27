@@ -11,7 +11,7 @@ import { OpticalFluidRenderer } from "./opticalFluidRenderer";
 
 interface FluidReservoirProps {
   remainingPercent: number;
-  accent: "cyan" | "mint";
+  accent: "cyan" | "mint" | "amber";
   motion: FluidMotionSample;
   reducedMotion: boolean;
 }
@@ -41,6 +41,14 @@ const palettes: Record<FluidReservoirProps["accent"], Palette> = {
     deep: "rgba(0, 29, 34, .99)",
     edge: "rgba(226, 255, 247, .96)",
     caustic: "rgba(156, 255, 231, .22)",
+  },
+  amber: {
+    top: "rgba(255, 214, 138, .98)",
+    middle: "rgba(199, 128, 12, .94)",
+    bottom: "rgba(87, 45, 0, .99)",
+    deep: "rgba(38, 19, 0, .99)",
+    edge: "rgba(255, 240, 214, .96)",
+    caustic: "rgba(255, 204, 120, .22)",
   },
 };
 
