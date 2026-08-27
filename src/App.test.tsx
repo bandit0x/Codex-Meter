@@ -1,8 +1,13 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App, applyRouteGate } from "./App";
-import type { CapacitySnapshot, TomatoConnectionSnapshot } from "./capacityTypes";
+import type {
+  CapacitySnapshot,
+  DisplayPreferences,
+  TomatoConnectionSnapshot,
+  ZCodeQuotaSnapshot,
+} from "./capacityTypes";
 
 const inertPreferences = {
   loadPreferences: async () => ({ opacity: 0.92, reducedMotion: false, x: null, y: null }),
@@ -37,6 +42,37 @@ const healthySnapshot: CapacitySnapshot = {
     nearestExpiryAt: 1_800_432_000,
   },
   observedAtMs: 1_800_000_000_000,
+};
+
+const healthyZcodeSnapshot: ZCodeQuotaSnapshot = {
+  sourceState: "healthy",
+  fiveHour: {
+    usedPercent: 24,
+    remainingPercent: 76,
+    windowDurationMins: 300,
+    resetsAt: 1_800_000_000,
+    quotaTotal: 2000,
+    quotaUsed: 480,
+    quotaRemaining: 1520,
+  },
+  weekly: {
+    usedPercent: 58,
+    remainingPercent: 42,
+    windowDurationMins: 10_080,
+    resetsAt: 1_800_172_800,
+    quotaTotal: 10000,
+    quotaUsed: 5800,
+    quotaRemaining: 4200,
+  },
+  planLevel: "pro",
+  observedAtMs: 1_800_000_000_000,
+};
+
+const basePreferences: DisplayPreferences = {
+  opacity: 0.92,
+  reducedMotion: false,
+  x: null,
+  y: null,
 };
 
 const blockedTomato: TomatoConnectionSnapshot = {
@@ -387,5 +423,185 @@ describe("Codex capacity overlay", () => {
     expect(refreshButton).toBeDisabled();
     await user.click(refreshButton);
     expect(attempt).toBe(2);
+  });
+});
+
+describe("dual quota sources", () => {
+  it("defaults to Codex with a CODEX badge when the source preference is absent", async () => {
+    render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => healthySnapshot}
+        loadZcodeSnapshot={async () => healthyZcodeSnapshot}
+      />,
+    );
+
+    expect(await screen.findByText("76%", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("CODEX")).toBeInTheDocument();
+    expect(screen.queryByText("ZCODE")).not.toBeInTheDocument();
+    expect(screen.getByText(/FULL RESETS/)).toBeInTheDocument();
+  });
+
+  it("renders ZCode quota windows with the ZCODE badge, credits, and plan chip", async () => {
+    render(
+      <App
+        {...inertPreferences}
+        loadPreferences={async () => ({ ...basePreferences, source: "zcode" })}
+        loadSnapshot={async () => healthySnapshot}
+        loadZcodeSnapshot={async () => healthyZcodeSnapshot}
+      />,
+    );
+
+    const fiveHour = await screen.findByRole("group", { name: "5 HOUR quota" });
+    expect(within(fiveHour).getByText("76%", { exact: false })).toBeInTheDocument();
+    expect(within(fiveHour).getByText("1520 / 2000")).toBeInTheDocument();
+    const weekly = screen.getByRole("group", { name: "WEEK quota" });
+    expect(within(weekly).getByText("42%", { exact: false })).toBeInTheDocument();
+    expect(within(weekly).getByText("4200 / 10000")).toBeInTheDocument();
+    expect(screen.getByText("ZCODE")).toBeInTheDocument();
+    expect(screen.getByText("PRO")).toBeInTheDocument();
+    expect(screen.queryByText(/FULL RESETS/)).not.toBeInTheDocument();
+  });
+
+  it("renders a single ZCode cell when only the five-hour window exists", async () => {
+    render(
+      <App
+        {...inertPreferences}
+        loadPreferences={async () => ({ ...basePreferences, source: "zcode" })}
+        loadZcodeSnapshot={async () => ({ ...healthyZcodeSnapshot, weekly: null })}
+      />,
+    );
+
+    expect(await screen.findByRole("group", { name: "5 HOUR quota" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "WEEK quota" })).not.toBeInTheDocument();
+  });
+
+  it("alternates the active source every ten seconds in carousel mode", async () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <App
+          {...inertPreferences}
+          loadPreferences={async () => ({ ...basePreferences, source: "carousel" })}
+          loadSnapshot={async () => healthySnapshot}
+          loadZcodeSnapshot={async () => healthyZcodeSnapshot}
+        />,
+      );
+
+      await act(async () => undefined);
+      expect(screen.getByText("CODEX")).toBeInTheDocument();
+      expect(screen.queryByText("ZCODE")).not.toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(screen.getByText("ZCODE")).toBeInTheDocument();
+      expect(screen.getByText("1520 / 2000")).toBeInTheDocument();
+      expect(screen.queryByText("CODEX")).not.toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(screen.getByText("CODEX")).toBeInTheDocument();
+      expect(screen.getByText(/FULL RESETS/)).toBeInTheDocument();
+      expect(screen.queryByText("ZCODE")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows a ZCode failure surface while Codex data stays reachable", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadPreferences={async () => ({ ...basePreferences, source: "zcode" })}
+        loadSnapshot={async () => healthySnapshot}
+        loadZcodeSnapshot={async () => {
+          throw { code: "CRV-502", message: "无法读取 ZCode 配额", detail: null };
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("无法读取 ZCode 配额")).toBeInTheDocument();
+    expect(screen.getByText(/诊断码 CRV-502/)).toBeInTheDocument();
+
+    fireEvent.contextMenu(container.querySelector(".app-frame") as HTMLElement);
+    await user.click(screen.getByRole("button", { name: "Codex" }));
+
+    expect(await screen.findByText("76%", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(/FULL RESETS/)).toBeInTheDocument();
+    expect(screen.getByText("CODEX")).toBeInTheDocument();
+  });
+
+  it("suppresses the TomatoCloud route alarm while ZCode is displayed", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadPreferences={async () => ({ ...basePreferences, source: "zcode" })}
+        loadSnapshot={async () => healthySnapshot}
+        loadZcodeSnapshot={async () => healthyZcodeSnapshot}
+        loadTomatoConnection={async () => blockedTomato}
+      />,
+    );
+
+    expect(await screen.findByText("ZCODE")).toBeInTheDocument();
+    // 连续两次阻断探测（约 1 秒节奏）足以让 Codex 门限成立；ZCode 态不得出现任何报警
+    await new Promise((resolve) => setTimeout(resolve, 2_100));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(container.querySelector(".route-alert-halo")).toBeNull();
+    expect(container.querySelector(".glass-shell--route-blocked")).toBeNull();
+
+    fireEvent.contextMenu(container.querySelector(".app-frame") as HTMLElement);
+    await user.click(screen.getByRole("button", { name: "Codex" }));
+
+    await waitFor(
+      () => expect(screen.getByText("TomatoCloud route is unavailable")).toBeInTheDocument(),
+      { timeout: 4_000 },
+    );
+    expect(container.querySelector(".route-alert-halo")).not.toBeNull();
+  }, 15_000);
+
+  it("saves the selected quota source from the settings panel and applies it immediately", async () => {
+    const user = userEvent.setup();
+    const savedSources: Array<DisplayPreferences["source"]> = [];
+    render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={async () => healthySnapshot}
+        loadZcodeSnapshot={async () => healthyZcodeSnapshot}
+        savePreferences={async (preferences) => {
+          savedSources.push(preferences.source);
+        }}
+      />,
+    );
+
+    await screen.findByText("76%", { exact: false });
+    await user.click(screen.getByRole("button", { name: "展开重置详情" }));
+    await user.click(screen.getByRole("button", { name: "设置" }));
+    await user.click(screen.getByRole("button", { name: "Zcode" }));
+    expect(savedSources[savedSources.length - 1]).toBe("zcode");
+
+    expect(await screen.findByText("ZCODE")).toBeInTheDocument();
+    expect(screen.getByText("1520 / 2000")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "轮播" }));
+    expect(savedSources[savedSources.length - 1]).toBe("carousel");
+  });
+
+  it("loads both quota sources on mount", async () => {
+    const codexLoader = vi.fn(async () => healthySnapshot);
+    const zcodeLoader = vi.fn(async () => healthyZcodeSnapshot);
+    render(
+      <App
+        {...inertPreferences}
+        loadSnapshot={codexLoader}
+        loadZcodeSnapshot={zcodeLoader}
+      />,
+    );
+
+    await waitFor(() => expect(codexLoader).toHaveBeenCalled());
+    await waitFor(() => expect(zcodeLoader).toHaveBeenCalled());
   });
 });

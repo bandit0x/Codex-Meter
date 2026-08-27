@@ -1,7 +1,12 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
-import type { CapacitySnapshot, TomatoConnectionSnapshot } from "./capacityTypes";
+import type {
+  CapacitySnapshot,
+  SourceSelection,
+  TomatoConnectionSnapshot,
+  ZCodeQuotaSnapshot,
+} from "./capacityTypes";
 import { overlayLayoutSizes, type OverlayLayout } from "./windowClient";
 
 const visualFixture: CapacitySnapshot = {
@@ -19,6 +24,30 @@ const visualFixture: CapacitySnapshot = {
     resetsAt: 1_800_172_800,
   },
   fullResetCredits: { availableCount: 2, nearestExpiryAt: 1_800_432_000 },
+  observedAtMs: Date.now(),
+};
+
+const visualZcodeFixture: ZCodeQuotaSnapshot = {
+  sourceState: "healthy",
+  fiveHour: {
+    usedPercent: 24,
+    remainingPercent: 76,
+    windowDurationMins: 300,
+    resetsAt: 1_787_810_092,
+    quotaTotal: 2000,
+    quotaUsed: 480,
+    quotaRemaining: 1520,
+  },
+  weekly: {
+    usedPercent: 58,
+    remainingPercent: 42,
+    windowDurationMins: 10_080,
+    resetsAt: 1_788_395_128,
+    quotaTotal: 10000,
+    quotaUsed: 5800,
+    quotaRemaining: 4200,
+  },
+  planLevel: "pro",
   observedAtMs: Date.now(),
 };
 
@@ -50,6 +79,9 @@ const visualFixtureNames = new Set([
   "v7-expanded",
   "v7-collapsed",
   "v7-route-blocked",
+  "zcode-healthy",
+  "zcode-failed",
+  "zcode-carousel",
 ]);
 
 function resolveFixtureLayout(
@@ -60,6 +92,12 @@ function resolveFixtureLayout(
   if (fixtureName === "v7-collapsed") return "collapsed";
   if (requestedLayout === "expanded" || requestedLayout === "collapsed") return requestedLayout;
   return "compact";
+}
+
+function resolveFixtureSource(fixtureName: string | null): SourceSelection {
+  if (fixtureName === "zcode-carousel") return "carousel";
+  if (fixtureName?.startsWith("zcode")) return "zcode";
+  return "codex";
 }
 
 function createFixtureLoader(fixtureName: string | null) {
@@ -74,6 +112,15 @@ function createFixtureLoader(fixtureName: string | null) {
   return async () => visualFixture;
 }
 
+function createZcodeFixtureLoader(fixtureName: string | null) {
+  if (fixtureName === "zcode-failed") {
+    return async (): Promise<ZCodeQuotaSnapshot> => {
+      throw { code: "CRV-502", message: "无法读取 ZCode 配额", detail: null };
+    };
+  }
+  return async () => visualZcodeFixture;
+}
+
 const query = new URLSearchParams(window.location.search);
 const fixtureName = import.meta.env.DEV ? query.get("fixture") : null;
 const requestedLayout = query.get("layout");
@@ -84,9 +131,16 @@ const fixtureProps: React.ComponentProps<typeof App> = fixtureEnabled
   ? {
       initialLayout: fixtureLayout,
       loadSnapshot: createFixtureLoader(fixtureName),
+      loadZcodeSnapshot: createZcodeFixtureLoader(fixtureName),
       loadTomatoConnection: async () =>
         fixtureName === "v7-route-blocked" ? visualBlockedRoute : visualHealthyRoute,
-      loadPreferences: async () => ({ opacity: 0.92, reducedMotion: false, x: null, y: null }),
+      loadPreferences: async () => ({
+        opacity: 0.92,
+        reducedMotion: false,
+        x: null,
+        y: null,
+        source: resolveFixtureSource(fixtureName),
+      }),
       savePreferences: async () => undefined,
       enableClickThrough: async () => undefined,
       setWindowLayout: async () => undefined,

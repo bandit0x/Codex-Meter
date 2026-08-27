@@ -3,16 +3,18 @@ mod capacity;
 mod desktop_shortcut;
 mod preferences;
 mod tomato_cloud;
+mod zcode_quota;
 
 use capacity::{CapacityService, CapacitySnapshot, Diagnostic};
 use preferences::{restore_window_position, DisplayPreferences, PreferencesStore};
-use tomato_cloud::{TomatoCloudService, TomatoConnectionSnapshot};
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, State, WebviewWindow, WindowEvent,
 };
+use tomato_cloud::{TomatoCloudService, TomatoConnectionSnapshot};
+use zcode_quota::{ZCodeQuotaService, ZCodeQuotaSnapshot};
 
 const TRAY_SHOW_ID: &str = "show";
 const TRAY_HIDE_ID: &str = "hide";
@@ -119,6 +121,13 @@ async fn read_tomato_connection(
 }
 
 #[tauri::command]
+async fn read_zcode_quota_snapshot(
+    service: State<'_, ZCodeQuotaService>,
+) -> Result<ZCodeQuotaSnapshot, Diagnostic> {
+    service.read_snapshot().await
+}
+
+#[tauri::command]
 fn load_display_preferences(store: State<'_, PreferencesStore>) -> DisplayPreferences {
     store.load()
 }
@@ -165,6 +174,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(CapacityService::from_environment())
         .manage(TomatoCloudService::new())
+        .manage(ZCodeQuotaService::from_environment())
         .setup(|app| {
             #[cfg(all(target_os = "windows", not(debug_assertions)))]
             if let Err(error) = desktop_shortcut::replace_desktop_shortcut() {
@@ -193,6 +203,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_capacity_snapshot,
             read_tomato_connection,
+            read_zcode_quota_snapshot,
             load_display_preferences,
             save_display_preferences,
             enable_temporary_click_through

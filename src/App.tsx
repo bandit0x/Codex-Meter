@@ -9,12 +9,16 @@ import {
   saveDisplayPreferences,
 } from "./capacityClient";
 import { readTomatoConnection } from "./tomatoClient";
+import { readZcodeQuotaSnapshot } from "./zcodeClient";
 import type {
   CapacitySnapshot,
   Diagnostic,
   DisplayPreferences,
+  MeterSource,
   QuotaWindow,
+  SourceSelection,
   TomatoConnectionSnapshot,
+  ZCodeQuotaSnapshot,
 } from "./capacityTypes";
 import { IDLE_FLUID_MOTION, type FluidMotionSample } from "./fluidPhysics";
 import {
@@ -26,11 +30,13 @@ import {
 } from "./windowClient";
 
 export type CapacityLoader = () => Promise<CapacitySnapshot>;
+export type ZcodeSnapshotLoader = () => Promise<ZCodeQuotaSnapshot>;
 export type TomatoConnectionLoader = () => Promise<TomatoConnectionSnapshot>;
 
 interface AppProps {
   initialLayout?: OverlayLayout;
   loadSnapshot?: CapacityLoader;
+  loadZcodeSnapshot?: ZcodeSnapshotLoader;
   loadTomatoConnection?: TomatoConnectionLoader;
   loadPreferences?: () => Promise<DisplayPreferences>;
   savePreferences?: (preferences: DisplayPreferences) => Promise<void>;
@@ -40,18 +46,41 @@ interface AppProps {
   setWindowPosition?: (position: OverlayPosition) => Promise<void>;
 }
 
-type ViewState =
+type ViewState<S> =
   | { kind: "loading" }
-  | { kind: "healthy"; snapshot: CapacitySnapshot }
+  | { kind: "healthy"; snapshot: S }
   | { kind: "failed"; diagnostic: Diagnostic };
+
+interface SourceSlot<S> {
+  view: ViewState<S>;
+  lastSnapshot: S | null;
+  isRefreshing: boolean;
+  load: () => Promise<void>;
+}
+
+const sourceLabels: Record<MeterSource, string> = {
+  codex: "Codex",
+  zcode: "ZCode",
+};
+
+const sourceFailureHints: Record<MeterSource, string> = {
+  codex: "检查 Codex 是否已安装并登录",
+  zcode: "检查 ZCode 是否已登录",
+};
+
+function normalizeSourceSelection(value: SourceSelection | undefined): SourceSelection {
+  return value === "zcode" || value === "carousel" ? value : "codex";
+}
 
 const defaultPreferences: DisplayPreferences = {
   opacity: 0.92,
   reducedMotion: false,
   x: null,
   y: null,
+  source: "codex",
 };
 const REFRESH_INTERVAL_MS = 60_000;
+const CAROUSEL_INTERVAL_MS = 10_000;
 const CLICK_THROUGH_DURATION_MS = 10_000;
 const ROUTE_HEALTHY_INTERVAL_MS = 5_000;
 const ROUTE_BLOCKED_INTERVAL_MS = 1_000;
@@ -59,6 +88,10 @@ const ROUTE_FAILURE_THRESHOLD = 2;
 
 function formatPercent(value: number): string {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+}
+
+function formatCredits(window: { quotaRemaining: number; quotaTotal: number }): string {
+  return `${window.quotaRemaining} / ${window.quotaTotal}`;
 }
 
 function formatReset(timestamp: number, includeWeekday: boolean): string {
@@ -88,7 +121,7 @@ function formatFreshness(observedAtMs: number): string {
   return `Updated ${Math.floor(seconds / 60)}m ago`;
 }
 
-function normalizeDiagnostic(error: unknown): Diagnostic {
+function normalizeDiagnostic(error: unknown, sourceLabel: string): Diagnostic {
   if (typeof error === "object" && error !== null) {
     const candidate = error as Partial<Diagnostic>;
     if (typeof candidate.code === "string" && typeof candidate.message === "string") {
@@ -102,13 +135,13 @@ function normalizeDiagnostic(error: unknown): Diagnostic {
 
   return {
     code: "CRV-100",
-    message: "无法读取 Codex 配额",
+    message: `无法读取 ${sourceLabel} 配额`,
     detail: error instanceof Error ? error.message : String(error),
   };
 }
 
 function normalizeRouteFailure(error: unknown): TomatoConnectionSnapshot {
-  const diagnostic = normalizeDiagnostic(error);
+  const diagnostic = normalizeDiagnostic(error, "Codex");
   return {
     state: "blocked",
     countryCode: null,
@@ -151,6 +184,39 @@ export function applyRouteGate(
   return { visible: next, consecutiveFailures };
 }
 
+function useSourceSlot<S>(loader: () => Promise<S>, sourceLabel: string): SourceSlot<S> {
+  const [view, setView] = useState<ViewState<S>>({ kind: "loading" });
+  const [lastSnapshot, setLastSnapshot] = useState<S | null>(null);
+  const lastSnapshotRef = useRef<S | null>(null);
+  const generationRef = useRef(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    const generation = ++generationRef.current;
+    if (lastSnapshotRef.current !== null) setIsRefreshing(true);
+    else setView({ kind: "loading" });
+
+    try {
+      const snapshot = await loader();
+      if (generation !== generationRef.current) return;
+      lastSnapshotRef.current = snapshot;
+      setLastSnapshot(snapshot);
+      setView({ kind: "healthy", snapshot });
+    } catch (error) {
+      if (generation !== generationRef.current) return;
+      setView({ kind: "failed", diagnostic: normalizeDiagnostic(error, sourceLabel) });
+    } finally {
+      if (generation === generationRef.current) setIsRefreshing(false);
+    }
+  }, [loader, sourceLabel]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { view, lastSnapshot, isRefreshing, load };
+}
+
 function Icon({ name }: { name: "chevron" | "settings" | "close" }) {
   if (name === "settings") {
     return (
@@ -182,12 +248,14 @@ function QuotaCell({
   label,
   window,
   accent,
+  credits,
   motion,
   reducedMotion,
 }: {
   label: "5 HOUR" | "WEEK";
   window: QuotaWindow | null;
-  accent: "cyan" | "mint";
+  accent: "cyan" | "mint" | "amber";
+  credits?: string;
   motion: FluidMotionSample;
   reducedMotion: boolean;
 }) {
@@ -195,7 +263,7 @@ function QuotaCell({
 
   return (
     <section
-      className={`quota-cell quota-cell--${accent} ${window ? "" : "quota-cell--unavailable"}`}
+      className={`quota-cell quota-cell--${accent} ${label === "WEEK" ? "quota-cell--week " : ""}${window ? "" : "quota-cell--unavailable"}`}
       aria-label={`${label} quota${window ? "" : " unavailable"}`}
       role="group"
     >
@@ -214,6 +282,7 @@ function QuotaCell({
           <span>{window ? `${formatPercent(remaining)}%` : "—"}</span>
           {window && <small>LEFT</small>}
         </div>
+        {window && credits && <span className="quota-credits">{credits}</span>}
         <span className="reset-time">
           {window ? `Resets ${formatReset(window.resetsAt, label === "WEEK")}` : "Data unavailable"}
         </span>
@@ -234,13 +303,13 @@ function QuotaCell({
   );
 }
 
-function LoadingSurface() {
+function LoadingSurface({ label }: { label: string }) {
   return (
-    <div className="loading-surface" role="status" aria-live="polite" aria-label="正在读取 Codex 配额">
+    <div className="loading-surface" role="status" aria-live="polite" aria-label={`正在读取 ${label} 配额`}>
       <span className="loading-scan" aria-hidden="true" />
-      {["5 HOUR", "WEEK"].map((label) => (
-        <section className="loading-cell" key={label}>
-          <span className="quota-label">{label}</span>
+      {["5 HOUR", "WEEK"].map((windowLabel) => (
+        <section className="loading-cell" key={windowLabel}>
+          <span className="quota-label">{windowLabel}</span>
           <span className="skeleton skeleton--large" />
           <span className="skeleton skeleton--medium" />
           <span className="skeleton skeleton--small" />
@@ -250,12 +319,20 @@ function LoadingSurface() {
   );
 }
 
-function FailedSurface({ diagnostic, onRetry }: { diagnostic: Diagnostic; onRetry: () => void }) {
+function FailedSurface({
+  diagnostic,
+  source,
+  onRetry,
+}: {
+  diagnostic: Diagnostic;
+  source: MeterSource;
+  onRetry: () => void;
+}) {
   return (
     <section className="failed-surface" aria-live="assertive">
       <span className="error-mark" aria-hidden="true">!</span>
-      <strong>无法读取 Codex 配额</strong>
-      <span>检查 Codex 是否已安装并登录 · 诊断码 {diagnostic.code}</span>
+      <strong>无法读取 {sourceLabels[source]} 配额</strong>
+      <span>{sourceFailureHints[source]} · 诊断码 {diagnostic.code}</span>
       <button type="button" onClick={onRetry}>重试</button>
     </section>
   );
@@ -286,7 +363,26 @@ function RouteStatus({ route, alert }: { route: TomatoConnectionSnapshot | null;
   );
 }
 
-function CollapsedSurface({ snapshot, onRestore }: { snapshot: CapacitySnapshot; onRestore: () => void }) {
+function SourceBadge({ source }: { source: MeterSource }) {
+  return (
+    <span className={`source-badge source-badge--${source}`}>
+      <i aria-hidden="true" />
+      {source === "codex" ? "CODEX" : "ZCODE"}
+    </span>
+  );
+}
+
+function CollapsedSurface({
+  source,
+  fiveHourPercent,
+  weeklyPercent,
+  onRestore,
+}: {
+  source: MeterSource;
+  fiveHourPercent: number | null;
+  weeklyPercent: number | null;
+  onRestore: () => void;
+}) {
   return (
     <button
       className="collapsed-surface"
@@ -296,18 +392,22 @@ function CollapsedSurface({ snapshot, onRestore }: { snapshot: CapacitySnapshot;
       aria-label="恢复标准视图"
     >
       <span>
-        <strong>{snapshot.fiveHour ? `${formatPercent(snapshot.fiveHour.remainingPercent)}%` : "—"}</strong>
-        <i className="status-dot status-dot--cyan" aria-hidden="true" />
+        <strong>{fiveHourPercent === null ? "—" : `${formatPercent(fiveHourPercent)}%`}</strong>
+        <i className={`collapsed-dot collapsed-dot--${source}`} aria-hidden="true" />
       </span>
       <span>
-        <strong>{snapshot.weekly ? `${formatPercent(snapshot.weekly.remainingPercent)}%` : "—"}</strong>
-        <i className="status-dot status-dot--mint" aria-hidden="true" />
+        <strong>{weeklyPercent === null ? "—" : `${formatPercent(weeklyPercent)}%`}</strong>
+        <i className={`collapsed-dot collapsed-dot--${source}`} aria-hidden="true" />
       </span>
     </button>
   );
 }
 
-function freshnessText(snapshot: CapacitySnapshot, stale: boolean, diagnostic?: Diagnostic): string {
+function freshnessText(
+  snapshot: Pick<CapacitySnapshot, "fiveHour" | "weekly" | "observedAtMs">,
+  stale: boolean,
+  diagnostic?: Diagnostic,
+): string {
   const unavailable = [
     snapshot.fiveHour ? null : "5-hour unavailable",
     snapshot.weekly ? null : "Week unavailable",
@@ -321,6 +421,7 @@ function freshnessText(snapshot: CapacitySnapshot, stale: boolean, diagnostic?: 
 export function App({
   initialLayout = "compact",
   loadSnapshot = readCapacitySnapshot,
+  loadZcodeSnapshot = readZcodeQuotaSnapshot,
   loadTomatoConnection = readTomatoConnection,
   loadPreferences = loadDisplayPreferences,
   savePreferences = saveDisplayPreferences,
@@ -329,16 +430,14 @@ export function App({
   getWindowPosition = getOverlayWindowPosition,
   setWindowPosition = setOverlayWindowPosition,
 }: AppProps) {
-  const [view, setView] = useState<ViewState>({ kind: "loading" });
-  const [lastSnapshot, setLastSnapshot] = useState<CapacitySnapshot | null>(null);
-  const lastSnapshotRef = useRef<CapacitySnapshot | null>(null);
-  const loadGenerationRef = useRef(0);
+  const codexSlot = useSourceSlot(loadSnapshot, "Codex");
+  const zcodeSlot = useSourceSlot(loadZcodeSnapshot, "ZCode");
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const [layoutMode, setLayoutMode] = useState<OverlayLayout>(initialLayout);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState(defaultPreferences);
+  const [carouselSource, setCarouselSource] = useState<MeterSource>("codex");
   const [clickThroughSeconds, setClickThroughSeconds] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [routeConnection, setRouteConnection] = useState<TomatoConnectionSnapshot | null>(null);
   const routeProbeInFlightRef = useRef<Promise<TomatoConnectionSnapshot> | null>(null);
   const routeGateRef = useRef<RouteGateState>({ visible: null, consecutiveFailures: 0 });
@@ -367,25 +466,10 @@ export function App({
   const previousMotionVelocityRef = useRef({ x: 0, y: 0 });
   const suppressCollapsedRestoreUntilRef = useRef(0);
 
-  const load = useCallback(async () => {
-    const generation = ++loadGenerationRef.current;
-    const hasCachedSnapshot = lastSnapshotRef.current !== null;
-    if (hasCachedSnapshot) setIsRefreshing(true);
-    else setView({ kind: "loading" });
-
-    try {
-      const snapshot = await loadSnapshot();
-      if (generation !== loadGenerationRef.current) return;
-      lastSnapshotRef.current = snapshot;
-      setLastSnapshot(snapshot);
-      setView({ kind: "healthy", snapshot });
-    } catch (error) {
-      if (generation !== loadGenerationRef.current) return;
-      setView({ kind: "failed", diagnostic: normalizeDiagnostic(error) });
-    } finally {
-      if (generation === loadGenerationRef.current) setIsRefreshing(false);
-    }
-  }, [loadSnapshot]);
+  const refreshAll = useCallback(() => {
+    void codexSlot.load();
+    void zcodeSlot.load();
+  }, [codexSlot.load, zcodeSlot.load]);
 
   const probeRoute = useCallback((): Promise<TomatoConnectionSnapshot> => {
     if (routeProbeInFlightRef.current) return routeProbeInFlightRef.current;
@@ -406,13 +490,12 @@ export function App({
   }, [loadTomatoConnection]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => void load(), REFRESH_INTERVAL_MS);
+    const timer = window.setInterval(() => {
+      void codexSlot.load();
+      void zcodeSlot.load();
+    }, REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [codexSlot.load, zcodeSlot.load]);
 
   useEffect(() => {
     let cancelled = false;
@@ -434,8 +517,27 @@ export function App({
     };
   }, [probeRoute]);
 
+  const sourceSelection = normalizeSourceSelection(preferences.source);
+
   useEffect(() => {
-    void loadPreferences().then(setPreferences).catch(() => undefined);
+    if (sourceSelection !== "carousel") return;
+    let timer: number | null = null;
+    const scheduleToggle = () => {
+      timer = window.setTimeout(() => {
+        setCarouselSource((value) => (value === "codex" ? "zcode" : "codex"));
+        scheduleToggle();
+      }, CAROUSEL_INTERVAL_MS);
+    };
+    scheduleToggle();
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [sourceSelection]);
+
+  useEffect(() => {
+    void loadPreferences()
+      .then((loaded) => setPreferences({ ...loaded, source: normalizeSourceSelection(loaded.source) }))
+      .catch(() => undefined);
   }, [loadPreferences]);
 
   useEffect(() => {
@@ -633,13 +735,34 @@ export function App({
     }
   }, [enableClickThrough]);
 
-  const snapshot = view.kind === "healthy" ? view.snapshot : lastSnapshot;
-  const staleFromFailure = view.kind === "failed" && snapshot !== null;
-  const stale = staleFromFailure || snapshot?.sourceState === "stale";
-  const failureDiagnostic = view.kind === "failed" ? view.diagnostic : undefined;
+  const activeSource: MeterSource = sourceSelection === "carousel" ? carouselSource : sourceSelection;
+  const activeSlot = activeSource === "codex" ? codexSlot : zcodeSlot;
+  const activeIsZcode = activeSource === "zcode";
+  const codexSnapshot = codexSlot.view.kind === "healthy" ? codexSlot.view.snapshot : codexSlot.lastSnapshot;
+  const zcodeSnapshot = zcodeSlot.view.kind === "healthy" ? zcodeSlot.view.snapshot : zcodeSlot.lastSnapshot;
+  const activeSnapshot = activeIsZcode ? zcodeSnapshot : codexSnapshot;
+  const staleFromFailure = activeSlot.view.kind === "failed" && activeSnapshot !== null;
+  const stale = staleFromFailure || activeSnapshot?.sourceState === "stale";
+  const failureDiagnostic = activeSlot.view.kind === "failed" ? activeSlot.view.diagnostic : undefined;
   const routeBlocked = routeConnection?.state === "blocked";
-  const collapsed = layoutMode === "collapsed" && snapshot !== null;
+  const collapsed = layoutMode === "collapsed" && activeSnapshot !== null;
   const expanded = layoutMode === "expanded";
+
+  const detailActions = (
+    <div className="detail-actions">
+      <button type="button" onClick={() => void refreshAll()} disabled={activeSlot.isRefreshing}>
+        {activeSlot.isRefreshing ? "刷新中" : "刷新"}
+      </button>
+      <button type="button" onClick={() => void startClickThrough()}>
+        {clickThroughSeconds > 0 ? `穿透 ${clickThroughSeconds}s` : "穿透 10 秒"}
+      </button>
+      <button type="button" onClick={() => changeLayout("collapsed")}>收起为窄条</button>
+      <button ref={settingsButtonRef} type="button" onClick={() => setSettingsOpen((value) => !value)}>
+        <Icon name="settings" />
+        <span>设置</span>
+      </button>
+    </div>
+  );
 
   return (
     <main
@@ -655,63 +778,109 @@ export function App({
       onPointerUp={handleDragEnd}
       onPointerCancel={handleDragEnd}
     >
-      <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""} ${routeBlocked ? "glass-shell--route-blocked" : ""}`}>
+      <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""} ${routeBlocked && !activeIsZcode ? "glass-shell--route-blocked" : ""}`}>
         <OpticalShell
           dragging={isWindowDragging}
           reducedMotion={preferences.reducedMotion}
           opacity={preferences.opacity}
         />
-        {routeBlocked && <span className="route-alert-halo" aria-hidden="true" />}
+        {/* TomatoCloud 只承载 Codex 路由，ZCode 直连 bigmodel 不受路由阻断影响 */}
+        {routeBlocked && !activeIsZcode && <span className="route-alert-halo" aria-hidden="true" />}
         <div className="drag-rail" aria-hidden="true" />
+        {!collapsed && <SourceBadge source={activeSource} />}
 
-        {collapsed && snapshot ? (
-          <CollapsedSurface snapshot={snapshot} onRestore={restoreCollapsedLayout} />
+        {collapsed && activeSnapshot ? (
+          <CollapsedSurface
+            source={activeSource}
+            fiveHourPercent={activeSnapshot.fiveHour?.remainingPercent ?? null}
+            weeklyPercent={activeSnapshot.weekly?.remainingPercent ?? null}
+            onRestore={restoreCollapsedLayout}
+          />
         ) : (
           <>
-            {view.kind === "loading" && <LoadingSurface />}
-            {view.kind === "failed" && !snapshot && (
-              <FailedSurface diagnostic={view.diagnostic} onRetry={() => void load()} />
+            {activeSlot.view.kind === "loading" && <LoadingSurface label={sourceLabels[activeSource]} />}
+            {activeSlot.view.kind === "failed" && !activeSnapshot && (
+              <FailedSurface diagnostic={activeSlot.view.diagnostic} source={activeSource} onRetry={() => void refreshAll()} />
             )}
-            {snapshot && (
-              <div className="quota-grid">
-                <QuotaCell label="5 HOUR" window={snapshot.fiveHour} accent="cyan" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
-                <QuotaCell label="WEEK" window={snapshot.weekly} accent="mint" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
+            {activeSnapshot && (
+              <div
+                key={activeSource}
+                className={`quota-grid source-stage${activeIsZcode && !zcodeSnapshot?.weekly ? " quota-grid--single" : ""}`}
+              >
+                {activeIsZcode && zcodeSnapshot ? (
+                  <>
+                    <QuotaCell
+                      label="5 HOUR"
+                      window={zcodeSnapshot.fiveHour}
+                      accent="amber"
+                      credits={zcodeSnapshot.fiveHour ? formatCredits(zcodeSnapshot.fiveHour) : undefined}
+                      motion={fluidMotion}
+                      reducedMotion={preferences.reducedMotion}
+                    />
+                    {zcodeSnapshot.weekly && (
+                      <QuotaCell
+                        label="WEEK"
+                        window={zcodeSnapshot.weekly}
+                        accent="amber"
+                        credits={formatCredits(zcodeSnapshot.weekly)}
+                        motion={fluidMotion}
+                        reducedMotion={preferences.reducedMotion}
+                      />
+                    )}
+                  </>
+                ) : !activeIsZcode && codexSnapshot ? (
+                  <>
+                    <QuotaCell label="5 HOUR" window={codexSnapshot.fiveHour} accent="cyan" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
+                    <QuotaCell label="WEEK" window={codexSnapshot.weekly} accent="mint" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
+                  </>
+                ) : null}
               </div>
             )}
 
-            {routeBlocked && <RouteAlert diagnostic={routeConnection.diagnostic} onRetry={() => void probeRoute()} />}
+            {routeBlocked && !activeIsZcode && <RouteAlert diagnostic={routeConnection.diagnostic} onRetry={() => void probeRoute()} />}
 
             <footer className={`status-footer ${expanded ? "status-footer--expanded" : ""}`}>
-              {view.kind === "loading" && <span>Reading Codex…</span>}
-              {view.kind === "failed" && !snapshot && <span>数据不可用 · {view.diagnostic.code}</span>}
-              {!snapshot && <RouteStatus route={routeConnection} alert={routeBlocked} />}
-              {snapshot && !expanded && (
+              {activeSlot.view.kind === "loading" && <span>Reading {sourceLabels[activeSource]}…</span>}
+              {activeSlot.view.kind === "failed" && !activeSnapshot && <span>数据不可用 · {activeSlot.view.diagnostic.code}</span>}
+              {!activeSnapshot && !activeIsZcode && <RouteStatus route={routeConnection} alert={routeBlocked} />}
+              {activeSnapshot && !expanded && !activeIsZcode && codexSnapshot && (
                 <>
-                  <span>FULL RESETS <b>{snapshot.fullResetCredits?.availableCount ?? "—"}</b></span>
+                  <span>FULL RESETS <b>{codexSnapshot.fullResetCredits?.availableCount ?? "—"}</b></span>
                   <RouteStatus route={routeConnection} alert={routeBlocked} />
-                  <span className={isRefreshing ? "freshness freshness--refreshing" : "freshness"}>
-                    {isRefreshing ? "正在刷新" : freshnessText(snapshot, stale, failureDiagnostic)}
+                  <span className={activeSlot.isRefreshing ? "freshness freshness--refreshing" : "freshness"}>
+                    {activeSlot.isRefreshing ? "正在刷新" : freshnessText(codexSnapshot, stale, failureDiagnostic)}
                   </span>
                 </>
               )}
-              {snapshot && expanded && (
+              {activeSnapshot && !expanded && activeIsZcode && zcodeSnapshot && (
+                <>
+                  {zcodeSnapshot.planLevel && (
+                    <span className="plan-chip">{zcodeSnapshot.planLevel.toUpperCase()}</span>
+                  )}
+                  <span className={activeSlot.isRefreshing ? "freshness freshness--refreshing" : "freshness"}>
+                    {activeSlot.isRefreshing ? "正在刷新" : freshnessText(zcodeSnapshot, stale, failureDiagnostic)}
+                  </span>
+                </>
+              )}
+              {activeSnapshot && expanded && (
                 <div className="detail-strip">
-                  <span>FULL RESET EXPIRES <b>{formatExpiry(snapshot.fullResetCredits?.nearestExpiryAt)}</b></span>
-                  <RouteStatus route={routeConnection} alert={routeBlocked} />
+                  {activeIsZcode && zcodeSnapshot ? (
+                    <>
+                      {zcodeSnapshot.planLevel && (
+                        <span className="plan-chip">{zcodeSnapshot.planLevel.toUpperCase()}</span>
+                      )}
+                      <span className={activeSlot.isRefreshing ? "freshness freshness--refreshing" : "freshness"}>
+                        {activeSlot.isRefreshing ? "正在刷新" : freshnessText(zcodeSnapshot, stale, failureDiagnostic)}
+                      </span>
+                    </>
+                  ) : codexSnapshot ? (
+                    <>
+                      <span>FULL RESET EXPIRES <b>{formatExpiry(codexSnapshot.fullResetCredits?.nearestExpiryAt)}</b></span>
+                      <RouteStatus route={routeConnection} alert={routeBlocked} />
+                    </>
+                  ) : null}
                   {stale && <span className="stale-warning">STALE · {failureDiagnostic?.code ?? "cached snapshot"}</span>}
-                  <div className="detail-actions">
-                    <button type="button" onClick={() => void load()} disabled={isRefreshing}>
-                      {isRefreshing ? "刷新中" : "刷新"}
-                    </button>
-                    <button type="button" onClick={() => void startClickThrough()}>
-                      {clickThroughSeconds > 0 ? `穿透 ${clickThroughSeconds}s` : "穿透 10 秒"}
-                    </button>
-                    <button type="button" onClick={() => changeLayout("collapsed")}>收起为窄条</button>
-                    <button ref={settingsButtonRef} type="button" onClick={() => setSettingsOpen((value) => !value)}>
-                      <Icon name="settings" />
-                      <span>设置</span>
-                    </button>
-                  </div>
+                  {detailActions}
                 </div>
               )}
               <button
@@ -721,7 +890,7 @@ export function App({
                 aria-expanded={expanded}
                 title={expanded ? "收起重置详情" : "展开重置详情"}
                 onClick={() => changeLayout(expanded ? "compact" : "expanded")}
-                disabled={!snapshot}
+                disabled={!activeSnapshot}
               >
                 <Icon name="chevron" />
               </button>
@@ -755,6 +924,32 @@ export function App({
               />
               <span>减少动效</span>
             </label>
+            <div className="source-row">
+              <span>额度来源</span>
+              <div className="source-segments" role="group" aria-label="额度来源">
+                <button
+                  type="button"
+                  aria-pressed={sourceSelection === "codex"}
+                  onClick={() => updatePreferences({ ...preferences, source: "codex" })}
+                >
+                  Codex
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={sourceSelection === "zcode"}
+                  onClick={() => updatePreferences({ ...preferences, source: "zcode" })}
+                >
+                  Zcode
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={sourceSelection === "carousel"}
+                  onClick={() => updatePreferences({ ...preferences, source: "carousel" })}
+                >
+                  轮播
+                </button>
+              </div>
+            </div>
             <small>右键可再次打开 · 不会注册开机启动</small>
           </aside>
         )}
