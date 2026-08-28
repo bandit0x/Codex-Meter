@@ -6,7 +6,7 @@
 
 _Windows 11 上的轻量 Codex 配额桌面浮窗。_
 
-当前版本：**0.1.4**
+当前版本：**0.1.5**
 
 ---
 
@@ -45,6 +45,12 @@ _图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK ·
 其他确定性测试状态包括[加载状态](docs/verification/screenshots/v8-half-loading.png)和[窄条状态](docs/verification/screenshots/v8-half-collapsed.png)。这些截图均使用测试夹具生成。
 
 ## 📦 版本更新
+
+### 0.1.5 · 修复了部分显示错误
+
+- 修复 TomatoCloud 短暂失败并恢复时的 stale 视觉处理，Codex 的两个液体舱不再被统一去色为月光银
+- 保留 stale 数据提示的降亮度效果，同时维持 5 小时舱 cyan 与周舱 mint 的语义色
+- 补充“TomatoCloud 失败 → 恢复”时序的前端回归测试，并更新 0.1.5 便携包、安装包与桌面快捷方式
 
 ### 0.1.4
 

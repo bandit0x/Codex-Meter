@@ -20,7 +20,7 @@ function Get-ChildProcessIds {
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 if ([string]::IsNullOrWhiteSpace($Executable)) {
-    $Executable = Join-Path $projectRoot "release\CodexMeter-0.1.4-win-x64\Codex Meter.exe"
+    $Executable = Join-Path $projectRoot "release\CodexMeter-0.1.5-win-x64\Codex Meter.exe"
 }
 $Executable = [System.IO.Path]::GetFullPath($Executable)
 if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
