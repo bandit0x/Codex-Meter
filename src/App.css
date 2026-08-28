@@ -356,8 +356,8 @@ input:focus-visible {
 .quota-cell--mint .fluid-reservoir { border-radius: 19px 25px 25px 19px; }
 
 .glass-shell--stale .fluid-reservoir {
-  filter: grayscale(0.55) saturate(0.68);
-  opacity: 0.62;
+  /* Keep each chamber's semantic hue visible while marking stale data through dimming. */
+  opacity: 0.72;
 }
 
 .cell-content {

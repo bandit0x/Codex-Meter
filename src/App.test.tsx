@@ -353,6 +353,48 @@ describe("Codex capacity overlay", () => {
     expect(screen.getByText("76%", { exact: false })).toBeInTheDocument();
   });
 
+  it("preserves both Codex fluid hues through a TomatoCloud failure and recovery", async () => {
+    const user = userEvent.setup();
+    let snapshotAttempt = 0;
+    let routeAttempt = 0;
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        loadPreferences={async () => ({ ...basePreferences, source: "codex" })}
+        loadSnapshot={async () => {
+          snapshotAttempt += 1;
+          if (snapshotAttempt === 1) return healthySnapshot;
+          throw { code: "CRV-111", message: "读取 Codex 配额超时", detail: null };
+        }}
+        loadZcodeSnapshot={async () => healthyZcodeSnapshot}
+        loadTomatoConnection={async () => {
+          routeAttempt += 1;
+          return routeAttempt <= 2 ? blockedTomato : healthyTomato;
+        }}
+      />,
+    );
+
+    await screen.findByText("76%", { exact: false });
+    await screen.findByText("TomatoCloud route is unavailable");
+    await user.click(screen.getByRole("button", { name: "展开重置详情" }));
+    await user.click(screen.getByRole("button", { name: "刷新" }));
+    await screen.findByText("STALE · CRV-111");
+
+    await waitFor(
+      () => expect(screen.getByText("UK · 42 ms")).toBeInTheDocument(),
+      { timeout: 4_000 },
+    );
+    const reservoirs = Array.from(container.querySelectorAll<HTMLCanvasElement>(".fluid-reservoir"))
+      .filter((reservoir) => getComputedStyle(reservoir).display !== "none");
+    expect(reservoirs).toHaveLength(2);
+    expect(reservoirs.map((reservoir) => getComputedStyle(reservoir).filter)).toEqual([
+      "none",
+      "none",
+    ]);
+    expect(container.querySelector(".quota-cell--cyan")).toBeInTheDocument();
+    expect(container.querySelector(".quota-cell--mint")).toBeInTheDocument();
+  }, 10_000);
+
   it("labels an upstream stale snapshot instead of presenting it as healthy", async () => {
     render(
       <App
