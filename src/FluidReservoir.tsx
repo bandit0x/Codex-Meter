@@ -118,6 +118,7 @@ function drawReservoir(
   active: boolean,
   ambientMotion: boolean,
   phaseOffset: number,
+  flowScale: number,
 ) {
   context.clearRect(0, 0, width, height);
   const insetX = 5;
@@ -129,6 +130,7 @@ function drawReservoir(
   const liquidBottom = insetTop + clipHeight + 2;
   const baseY = linearLiquidLevel(percent, insetTop, chamberHeight);
   const liquidDepth = liquidBottom - baseY;
+  const flowTime = time * flowScale;
 
   context.save();
   roundedRect(context, insetX, insetTop, innerWidth, clipHeight, 22);
@@ -148,7 +150,7 @@ function drawReservoir(
     insetX,
     innerWidth,
     baseY,
-    time,
+    flowTime,
     active,
     ambientMotion,
     phaseOffset,
@@ -196,7 +198,7 @@ function drawReservoir(
   context.filter = "blur(5px)";
   for (let plume = 0; plume < 7; plume += 1) {
     const seed = plume * 1.731 + phaseOffset;
-    const drift = Math.sin(time * (active ? 0.00044 : 0.00018) + seed) * 12
+    const drift = Math.sin(flowTime * (active ? 0.00044 : 0.00018) + seed) * 12
       + flowOffset[0] * 18;
     const centerX = insetX + ((plume + 0.45) / 7) * innerWidth + drift;
     const centerY = causticStart + (0.46 + ((plume * 0.29) % 0.42)) * causticHeight
@@ -248,7 +250,7 @@ function drawReservoir(
     insetX,
     innerWidth,
     baseY,
-    time,
+    flowTime,
     active,
     ambientMotion,
     phaseOffset,
@@ -275,7 +277,7 @@ function drawReservoir(
     const bubbleX = insetX + 18 + seed * (innerWidth - 36);
     const depth = 0.18 + ((index * 0.37) % 0.72);
     const travel = active
-      ? ((time * (0.003 + index * 0.00013) + index * 17 + phaseOffset * 11)
+      ? ((flowTime * (0.003 + index * 0.00013) + index * 17 + phaseOffset * 11)
         % Math.max(10, liquidDepth - 8))
       : depth * liquidDepth;
     const bubbleY = liquidBottom - 7 - travel;
@@ -357,6 +359,7 @@ export function FluidReservoir({
           active: surface.isActive,
           ambientMotion: !reducedMotion,
           phaseOffset: dynamics.phaseOffset,
+          flowScale: dynamics.flowScale,
         });
         return;
       }
@@ -386,6 +389,7 @@ export function FluidReservoir({
         surface.isActive,
         !reducedMotion,
         dynamics.phaseOffset,
+        dynamics.flowScale,
       );
     };
     drawRef.current = () => render();

@@ -11,6 +11,7 @@ export interface OpticalFluidFrame {
   active: boolean;
   ambientMotion: boolean;
   phaseOffset: number;
+  flowScale: number;
 }
 
 export type FluidAccent = "cyan" | "mint" | "moonlight" | "emerald";
@@ -74,6 +75,7 @@ uniform float uTime;
 uniform float uActive;
 uniform float uAmbientMotion;
 uniform float uPhaseOffset;
+uniform float uFlowScale;
 uniform vec2 uFlowOffset;
 uniform float uAgitation;
 uniform float uSurface[${OPTICAL_SURFACE_NODE_COUNT}];
@@ -144,11 +146,11 @@ float freeSurfaceOffset(float normalizedX) {
   ) + 0.58;
   float ambientRipple = (
     sin(x * ${AMBIENT_BREEZE.primarySpatialFrequency.toFixed(1)}
-      + uTime * ${AMBIENT_BREEZE.primaryTemporalFrequency.toFixed(2)}
+      + uTime * uFlowScale * ${AMBIENT_BREEZE.primaryTemporalFrequency.toFixed(2)}
       + uPhaseOffset)
       * ${AMBIENT_BREEZE.primaryWeight.toFixed(2)}
     + sin(x * ${AMBIENT_BREEZE.secondarySpatialFrequency.toFixed(1)}
-      - uTime * ${AMBIENT_BREEZE.secondaryTemporalFrequency.toFixed(2)}
+      - uTime * uFlowScale * ${AMBIENT_BREEZE.secondaryTemporalFrequency.toFixed(2)}
       - uPhaseOffset * 0.73)
       * ${AMBIENT_BREEZE.secondaryWeight.toFixed(2)}
   ) * mix(
@@ -248,7 +250,8 @@ void main() {
     vec3 body = transmittedLight + scatteredLight;
     body *= mix(vec3(0.58), vec3(1.08), horizontalVolume);
 
-    float flowTime = uTime * mix(0.16, 0.42, uActive);
+    float flowTime = uTime * mix(0.16, 0.42, uActive) * uFlowScale
+      + uPhaseOffset * 0.24;
     vec2 chamberDomainOffset = vec2(cos(uPhaseOffset), sin(uPhaseOffset)) * 1.7;
     vec2 flowDomain = vec2(normalizedX * 4.8, depth * 4.1) + chamberDomainOffset;
     vec2 transportedFlow = uFlowOffset * vec2(1.2, -0.9);
@@ -300,7 +303,11 @@ void main() {
       float seed = float(bubbleIndex) + uPhaseOffset * 2.37;
       float bubbleX = 0.09 + hash11(seed * 2.13) * 0.82;
       float bubbleSpeed = 0.014 + hash11(seed * 4.7) * 0.018;
-      float bubbleY = fract(hash11(seed * 8.31) + uTime * bubbleSpeed * mix(0.62, 1.0, uActive));
+      float bubbleY = fract(
+        hash11(seed * 8.31)
+          + uTime * bubbleSpeed * mix(0.62, 1.0, uActive) * uFlowScale
+          + uPhaseOffset * 0.07
+      );
       float bubbleRadius = mix(0.0035, 0.0075, hash11(seed * 5.91));
       vec2 delta = vec2((normalizedX - bubbleX) * aspect, depth - bubbleY);
       float bubbleDistance = length(delta);
@@ -320,7 +327,7 @@ void main() {
     color += uAccent * surfaceLens * (0.16 + surfaceFresnel * 1.4);
     color -= vec3(0.0, 0.055, 0.075) * underside * 0.58;
     float travelingGlint = pow(
-      0.5 + 0.5 * sin(normalizedX * 32.0 - uTime * 1.8 + uPhaseOffset),
+      0.5 + 0.5 * sin(normalizedX * 32.0 - uTime * 1.8 * uFlowScale + uPhaseOffset),
       9.0
     );
     float glintBand = exp(-pow((fragment.y - surfaceY - 6.0 * ratio) / (7.0 * ratio), 2.0));
@@ -434,6 +441,7 @@ export class OpticalFluidRenderer {
       active: requireUniform(gl, program, "uActive"),
       ambientMotion: requireUniform(gl, program, "uAmbientMotion"),
       phaseOffset: requireUniform(gl, program, "uPhaseOffset"),
+      flowScale: requireUniform(gl, program, "uFlowScale"),
       flowOffset: requireUniform(gl, program, "uFlowOffset"),
       agitation: requireUniform(gl, program, "uAgitation"),
       surface: requireUniform(gl, program, "uSurface[0]"),
@@ -469,6 +477,7 @@ export class OpticalFluidRenderer {
     gl.uniform1f(uniforms.active, frame.active ? 1 : 0);
     gl.uniform1f(uniforms.ambientMotion, frame.ambientMotion ? 1 : 0);
     gl.uniform1f(uniforms.phaseOffset, frame.phaseOffset);
+    gl.uniform1f(uniforms.flowScale, frame.flowScale);
     gl.uniform2f(uniforms.flowOffset, frame.flowOffset[0], frame.flowOffset[1]);
     gl.uniform1f(uniforms.agitation, frame.agitation);
     gl.uniform1fv(uniforms.surface, frame.surface);

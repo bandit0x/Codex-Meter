@@ -33,6 +33,68 @@ describe("volumetric fluid surface", () => {
     expect(fiveHour).toBeLessThan(1);
   });
 
+  it("derives four distinct motion profiles from level and launch seed", () => {
+    const sessionSeed = 0.314159;
+    const profiles = [
+      deriveFluidDynamics(76, deriveChamberSeed(sessionSeed, "codex-five-hour")),
+      deriveFluidDynamics(42, deriveChamberSeed(sessionSeed, "codex-weekly")),
+      deriveFluidDynamics(76, deriveChamberSeed(sessionSeed, "zcode-five-hour")),
+      deriveFluidDynamics(42, deriveChamberSeed(sessionSeed, "zcode-weekly")),
+    ];
+
+    expect(new Set(profiles.map((profile) => profile.phaseOffset)).size).toBe(4);
+    expect(new Set(profiles.map((profile) => profile.flowScale)).size).toBe(4);
+    expect(new Set(profiles.map((profile) => profile.bodyImpulse)).size).toBe(4);
+  });
+
+  it("keeps all four chamber trajectories independent after the same drag", () => {
+    const sessionSeed = 0.314159;
+    const chambers = [
+      { remaining: 76, key: "codex-five-hour" },
+      { remaining: 42, key: "codex-weekly" },
+      { remaining: 76, key: "zcode-five-hour" },
+      { remaining: 42, key: "zcode-weekly" },
+    ];
+    const profiles = chambers.map(({ remaining, key }) =>
+      deriveFluidDynamics(remaining, deriveChamberSeed(sessionSeed, key)));
+    const surfaces = profiles.map((profile) => {
+      const surface = new FluidSurface();
+      surface.configure(profile);
+      surface.disturb(1.9, -0.45, true);
+      return surface;
+    });
+    const bodies = profiles.map((profile) => {
+      const body = new FluidBodyMomentum();
+      body.configure(profile);
+      body.disturb(1.9, -0.45, true);
+      return body;
+    });
+
+    for (let frame = 0; frame < 48; frame += 1) {
+      surfaces.forEach((surface) => surface.step());
+      bodies.forEach((body) => body.step());
+    }
+
+    const pairwiseSurfaceRms: number[] = [];
+    const pairwiseBodyRms: number[] = [];
+    for (let first = 0; first < chambers.length; first += 1) {
+      for (let second = first + 1; second < chambers.length; second += 1) {
+        let surfaceSquaredError = 0;
+        for (let index = 0; index < surfaces[first].heights.length; index += 1) {
+          const difference = surfaces[first].heights[index] - surfaces[second].heights[index];
+          surfaceSquaredError += difference * difference;
+        }
+        pairwiseSurfaceRms.push(Math.sqrt(surfaceSquaredError / surfaces[first].heights.length));
+        const bodyXDifference = bodies[first].offset[0] - bodies[second].offset[0];
+        const bodyYDifference = bodies[first].offset[1] - bodies[second].offset[1];
+        pairwiseBodyRms.push(Math.hypot(bodyXDifference, bodyYDifference));
+      }
+    }
+
+    expect(Math.min(...pairwiseSurfaceRms)).toBeGreaterThan(0.25);
+    expect(Math.min(...pairwiseBodyRms)).toBeGreaterThan(0.004);
+  });
+
   it("maps remaining percentage linearly to the physical liquid level", () => {
     expect(linearLiquidLevel(0, 10, 180)).toBe(190);
     expect(linearLiquidLevel(18, 10, 180)).toBeCloseTo(157.6);
@@ -94,6 +156,46 @@ describe("volumetric fluid surface", () => {
     expect(fiveHourHeights).not.toEqual(weeklyHeights);
     expect(Math.abs(fiveHourMean)).toBeLessThan(0.0001);
     expect(Math.abs(weeklyMean)).toBeLessThan(0.0001);
+  });
+
+  it("keeps surface, inertia, and phase visibly independent after an identical drag", () => {
+    const fiveHour = new FluidSurface();
+    const weekly = new FluidSurface();
+    const fiveHourBody = new FluidBodyMomentum();
+    const weeklyBody = new FluidBodyMomentum();
+    fiveHour.configure(deriveFluidDynamics(72, 0.18));
+    weekly.configure(deriveFluidDynamics(41, 0.81));
+    fiveHourBody.configure(deriveFluidDynamics(72, 0.18));
+    weeklyBody.configure(deriveFluidDynamics(41, 0.81));
+
+    fiveHour.disturb(1.9, -0.45, true);
+    weekly.disturb(1.9, -0.45, true);
+    fiveHourBody.disturb(1.9, -0.45, true);
+    weeklyBody.disturb(1.9, -0.45, true);
+
+    let surfaceSquaredError = 0;
+    let surfacePeakDifference = 0;
+    let bodySquaredError = 0;
+    for (let frame = 0; frame < 48; frame += 1) {
+      fiveHour.step();
+      weekly.step();
+      fiveHourBody.step();
+      weeklyBody.step();
+      for (let index = 0; index < fiveHour.heights.length; index += 1) {
+        const difference = fiveHour.heights[index] - weekly.heights[index];
+        surfaceSquaredError += difference * difference;
+        surfacePeakDifference = Math.max(surfacePeakDifference, Math.abs(difference));
+      }
+      const bodyXDifference = fiveHourBody.offset[0] - weeklyBody.offset[0];
+      const bodyYDifference = fiveHourBody.offset[1] - weeklyBody.offset[1];
+      bodySquaredError += bodyXDifference * bodyXDifference + bodyYDifference * bodyYDifference;
+    }
+
+    const surfaceRms = Math.sqrt(surfaceSquaredError / (48 * fiveHour.heights.length));
+    const bodyRms = Math.sqrt(bodySquaredError / 48);
+    expect(surfaceRms).toBeGreaterThan(1.1);
+    expect(surfacePeakDifference).toBeGreaterThan(2.4);
+    expect(bodyRms).toBeGreaterThan(0.04);
   });
 
   it("keeps the two reservoir states independent", () => {

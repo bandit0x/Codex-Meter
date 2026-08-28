@@ -19,8 +19,15 @@ export interface FluidDynamics {
   tension: number;
   damping: number;
   surfaceImpulse: number;
+  surfaceResponse: number;
+  surfaceWaveFrequency: number;
   bodyImpulse: number;
+  bodyResponseX: number;
+  bodyResponseY: number;
+  bodyCrossCoupling: number;
+  bodyDamping: number;
   timeScale: number;
+  flowScale: number;
   phaseOffset: number;
 }
 
@@ -54,13 +61,21 @@ export function deriveFluidDynamics(
 ): FluidDynamics {
   const depth = clamp(remainingPercent, 0, 100) / 100;
   const seed = ((chamberSeed % 1) + 1) % 1;
+  const phaseOffset = seed * Math.PI * 2;
   return {
-    tension: 0.205 - depth * 0.035 + seededVariation(seed, 0.17) * 0.006,
-    damping: 0.975 + depth * 0.01 + seededVariation(seed, 0.41) * 0.0015,
-    surfaceImpulse: 1.12 - depth * 0.18 + seededVariation(seed, 0.63) * 0.04,
-    bodyImpulse: 0.84 + depth * 0.28 + seededVariation(seed, 0.79) * 0.025,
-    timeScale: 0.96 + (1 - depth) * 0.06 + seededVariation(seed, 0.93) * 0.045,
-    phaseOffset: seed * Math.PI * 2,
+    tension: 0.215 - depth * 0.06 + seededVariation(seed, 0.17) * 0.016,
+    damping: 0.968 + depth * 0.018 + seededVariation(seed, 0.41) * 0.004,
+    surfaceImpulse: 1.05 - depth * 0.16 + seededVariation(seed, 0.63) * 0.09,
+    surfaceResponse: 0.92 + (1 - depth) * 0.18 + seededVariation(seed, 1.07) * 0.12,
+    surfaceWaveFrequency: 0.82 + depth * 0.78 + seededVariation(seed, 1.31) * 0.22,
+    bodyImpulse: 0.74 + depth * 0.42 + seededVariation(seed, 0.79) * 0.14,
+    bodyResponseX: 0.88 + depth * 0.24 + seededVariation(seed, 1.61) * 0.14,
+    bodyResponseY: 0.93 + (1 - depth) * 0.2 + seededVariation(seed, 1.83) * 0.14,
+    bodyCrossCoupling: Math.sin(phaseOffset * 1.37) * 0.24,
+    bodyDamping: 0.948 + depth * 0.018 + seededVariation(seed, 2.11) * 0.012,
+    timeScale: 0.83 + (1 - depth) * 0.24 + seededVariation(seed, 0.93) * 0.14,
+    flowScale: 0.78 + depth * 0.38 + seededVariation(seed, 2.37) * 0.18,
+    phaseOffset,
   };
 }
 
@@ -116,6 +131,9 @@ export class FluidSurface {
   private tension: number;
   private damping: number;
   private surfaceImpulse = 1;
+  private surfaceResponse = 1;
+  private surfaceWaveFrequency = 1;
+  private surfaceWavePhase = 0;
   private timeScale = 1;
   private energy = 0;
 
@@ -134,6 +152,9 @@ export class FluidSurface {
     this.tension = dynamics.tension;
     this.damping = dynamics.damping;
     this.surfaceImpulse = dynamics.surfaceImpulse;
+    this.surfaceResponse = dynamics.surfaceResponse;
+    this.surfaceWaveFrequency = dynamics.surfaceWaveFrequency;
+    this.surfaceWavePhase = dynamics.phaseOffset;
     this.timeScale = dynamics.timeScale;
   }
 
@@ -146,8 +167,19 @@ export class FluidSurface {
     for (let index = 0; index <= last; index += 1) {
       const normalized = index / last;
       const wallBias = (normalized - 0.5) * 2;
-      const pressurePulse = Math.sin(normalized * Math.PI) * vertical * 0.12;
-      this.velocities[index] += (-horizontal * wallBias * strength) + pressurePulse;
+      const primaryWave = Math.sin(
+        normalized * Math.PI * this.surfaceWaveFrequency + this.surfaceWavePhase,
+      );
+      const secondaryWave = Math.sin(
+        normalized * Math.PI * (this.surfaceWaveFrequency * 1.65 + 0.35)
+          - this.surfaceWavePhase * 0.61,
+      );
+      const responseProfile = clamp(1 + primaryWave * 0.42 + secondaryWave * 0.18, 0.42, 1.58);
+      const pressurePulse = Math.sin(normalized * Math.PI) * vertical * 0.12 * responseProfile;
+      this.velocities[index] += (
+        -horizontal * wallBias * strength * responseProfile
+        + pressurePulse
+      ) * this.surfaceResponse;
     }
 
     this.energy = Math.max(this.energy, Math.abs(horizontal) * 8 + Math.abs(vertical) * 3 + 0.8);
@@ -212,25 +244,37 @@ export class FluidBodyMomentum {
   private displacementX = 0;
   private displacementY = 0;
   private impulseScale = 1;
+  private responseX = 1;
+  private responseY = 1;
+  private crossCoupling = 0;
+  private damping = 0.96;
   private timeScale = 1;
 
   configure(dynamics: FluidDynamics): void {
     this.impulseScale = dynamics.bodyImpulse;
+    this.responseX = dynamics.bodyResponseX;
+    this.responseY = dynamics.bodyResponseY;
+    this.crossCoupling = dynamics.bodyCrossCoupling;
+    this.damping = dynamics.bodyDamping;
     this.timeScale = dynamics.timeScale;
   }
 
   disturb(accelerationX: number, accelerationY: number, release = false): void {
     const impulse = (release ? 0.18 : 0.085) * this.impulseScale;
-    this.momentumX = clamp(this.momentumX + clamp(accelerationX, -2.4, 2.4) * impulse, -2.8, 2.8);
-    this.momentumY = clamp(this.momentumY + clamp(accelerationY, -2, 2) * impulse, -2.2, 2.2);
+    const inputX = clamp(accelerationX, -2.4, 2.4);
+    const inputY = clamp(accelerationY, -2, 2);
+    const shapedX = inputX * this.responseX + inputY * this.crossCoupling;
+    const shapedY = inputY * this.responseY + inputX * this.crossCoupling * 0.65;
+    this.momentumX = clamp(this.momentumX + shapedX * impulse, -2.8, 2.8);
+    this.momentumY = clamp(this.momentumY + shapedY * impulse, -2.2, 2.2);
   }
 
   step(frameScale = 1): boolean {
     const scale = clamp(frameScale * this.timeScale, 0.35, 2);
     this.displacementX += this.momentumX * scale * 0.032;
     this.displacementY += this.momentumY * scale * 0.025;
-    this.momentumX *= Math.pow(0.966, scale);
-    this.momentumY *= Math.pow(0.961, scale);
+    this.momentumX *= Math.pow(this.damping, scale);
+    this.momentumY *= Math.pow(this.damping - 0.004, scale);
     return this.agitation > 0.008;
   }
 
