@@ -15,6 +15,55 @@ export const IDLE_FLUID_MOTION: FluidMotionSample = {
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.max(minimum, Math.min(maximum, value));
 
+export interface FluidDynamics {
+  tension: number;
+  damping: number;
+  surfaceImpulse: number;
+  bodyImpulse: number;
+  timeScale: number;
+  phaseOffset: number;
+}
+
+function seededVariation(seed: number, salt: number): number {
+  const value = Math.sin((seed + salt) * 12_989.8) * 43_758.5453;
+  return (value - Math.floor(value)) * 2 - 1;
+}
+
+export function createFluidSessionSeed(): number {
+  const randomValues = new Uint32Array(1);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(randomValues);
+    return randomValues[0] / 0x1_0000_0000;
+  }
+  return (Date.now() % 0x1_0000_0000) / 0x1_0000_0000;
+}
+
+export function deriveChamberSeed(sessionSeed: number, chamberKey: string): number {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < chamberKey.length; index += 1) {
+    hash ^= chamberKey.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  const normalizedSessionSeed = ((sessionSeed % 1) + 1) % 1;
+  return (normalizedSessionSeed + (hash >>> 0) / 0x1_0000_0000) % 1;
+}
+
+export function deriveFluidDynamics(
+  remainingPercent: number,
+  chamberSeed: number,
+): FluidDynamics {
+  const depth = clamp(remainingPercent, 0, 100) / 100;
+  const seed = ((chamberSeed % 1) + 1) % 1;
+  return {
+    tension: 0.205 - depth * 0.035 + seededVariation(seed, 0.17) * 0.006,
+    damping: 0.975 + depth * 0.01 + seededVariation(seed, 0.41) * 0.0015,
+    surfaceImpulse: 1.12 - depth * 0.18 + seededVariation(seed, 0.63) * 0.04,
+    bodyImpulse: 0.84 + depth * 0.28 + seededVariation(seed, 0.79) * 0.025,
+    timeScale: 0.96 + (1 - depth) * 0.06 + seededVariation(seed, 0.93) * 0.045,
+    phaseOffset: seed * Math.PI * 2,
+  };
+}
+
 export const AMBIENT_BREEZE = {
   primarySpatialFrequency: 8.5,
   primaryTemporalFrequency: 0.28,
@@ -37,17 +86,20 @@ export function ambientBreezeOffset(
   normalizedX: number,
   timeMs: number,
   active: boolean,
+  phaseOffset = 0,
 ): number {
   const x = clamp(normalizedX, 0, 1);
   const timeSeconds = timeMs / 1_000;
   const wave =
     Math.sin(
       x * AMBIENT_BREEZE.primarySpatialFrequency
-        + timeSeconds * AMBIENT_BREEZE.primaryTemporalFrequency,
+        + timeSeconds * AMBIENT_BREEZE.primaryTemporalFrequency
+        + phaseOffset,
     ) * AMBIENT_BREEZE.primaryWeight
     + Math.sin(
       x * AMBIENT_BREEZE.secondarySpatialFrequency
-        - timeSeconds * AMBIENT_BREEZE.secondaryTemporalFrequency,
+        - timeSeconds * AMBIENT_BREEZE.secondaryTemporalFrequency
+        - phaseOffset * 0.73,
     ) * AMBIENT_BREEZE.secondaryWeight;
   return wave * (active ? AMBIENT_BREEZE.activeStrength : AMBIENT_BREEZE.idleStrength);
 }
@@ -61,8 +113,10 @@ export class FluidSurface {
   readonly heights: Float32Array;
   private readonly velocities: Float32Array;
   private readonly accelerations: Float32Array;
-  private readonly tension: number;
-  private readonly damping: number;
+  private tension: number;
+  private damping: number;
+  private surfaceImpulse = 1;
+  private timeScale = 1;
   private energy = 0;
 
   constructor(
@@ -76,10 +130,17 @@ export class FluidSurface {
     this.damping = options.damping ?? 0.982;
   }
 
+  configure(dynamics: FluidDynamics): void {
+    this.tension = dynamics.tension;
+    this.damping = dynamics.damping;
+    this.surfaceImpulse = dynamics.surfaceImpulse;
+    this.timeScale = dynamics.timeScale;
+  }
+
   disturb(accelerationX: number, accelerationY: number, release = false): void {
     const horizontal = clamp(accelerationX, -2.4, 2.4);
     const vertical = clamp(accelerationY, -2, 2);
-    const strength = release ? 1.16 : 0.52;
+    const strength = (release ? 1.16 : 0.52) * this.surfaceImpulse;
     const last = this.heights.length - 1;
 
     for (let index = 0; index <= last; index += 1) {
@@ -94,7 +155,7 @@ export class FluidSurface {
 
   step(frameScale = 1): boolean {
     const count = this.heights.length;
-    const scale = clamp(frameScale, 0.35, 2);
+    const scale = clamp(frameScale * this.timeScale, 0.35, 2);
     let total = 0;
     let kinetic = 0;
 
@@ -150,15 +211,22 @@ export class FluidBodyMomentum {
   private momentumY = 0;
   private displacementX = 0;
   private displacementY = 0;
+  private impulseScale = 1;
+  private timeScale = 1;
+
+  configure(dynamics: FluidDynamics): void {
+    this.impulseScale = dynamics.bodyImpulse;
+    this.timeScale = dynamics.timeScale;
+  }
 
   disturb(accelerationX: number, accelerationY: number, release = false): void {
-    const impulse = release ? 0.18 : 0.085;
+    const impulse = (release ? 0.18 : 0.085) * this.impulseScale;
     this.momentumX = clamp(this.momentumX + clamp(accelerationX, -2.4, 2.4) * impulse, -2.8, 2.8);
     this.momentumY = clamp(this.momentumY + clamp(accelerationY, -2, 2) * impulse, -2.2, 2.2);
   }
 
   step(frameScale = 1): boolean {
-    const scale = clamp(frameScale, 0.35, 2);
+    const scale = clamp(frameScale * this.timeScale, 0.35, 2);
     this.displacementX += this.momentumX * scale * 0.032;
     this.displacementY += this.momentumY * scale * 0.025;
     this.momentumX *= Math.pow(0.966, scale);

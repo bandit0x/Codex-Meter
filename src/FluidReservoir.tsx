@@ -1,18 +1,20 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   ambientBreezeOffset,
+  deriveFluidDynamics,
   FLUID_TAIL_EXTENSION,
   FluidBodyMomentum,
   FluidSurface,
   type FluidMotionSample,
   linearLiquidLevel,
 } from "./fluidPhysics";
-import { OpticalFluidRenderer } from "./opticalFluidRenderer";
+import { OpticalFluidRenderer, type FluidAccent } from "./opticalFluidRenderer";
 
 interface FluidReservoirProps {
   remainingPercent: number;
-  accent: "cyan" | "mint" | "amber";
+  accent: FluidAccent;
   motion: FluidMotionSample;
+  motionSeed: number;
   reducedMotion: boolean;
 }
 
@@ -42,13 +44,21 @@ const palettes: Record<FluidReservoirProps["accent"], Palette> = {
     edge: "rgba(226, 255, 247, .96)",
     caustic: "rgba(156, 255, 231, .22)",
   },
-  amber: {
-    top: "rgba(255, 214, 138, .98)",
-    middle: "rgba(199, 128, 12, .94)",
-    bottom: "rgba(87, 45, 0, .99)",
-    deep: "rgba(38, 19, 0, .99)",
-    edge: "rgba(255, 240, 214, .96)",
-    caustic: "rgba(255, 204, 120, .22)",
+  moonlight: {
+    top: "rgba(236, 249, 253, .98)",
+    middle: "rgba(116, 155, 170, .94)",
+    bottom: "rgba(33, 77, 96, .99)",
+    deep: "rgba(7, 30, 41, .99)",
+    edge: "rgba(242, 252, 255, .96)",
+    caustic: "rgba(206, 240, 247, .22)",
+  },
+  emerald: {
+    top: "rgba(170, 255, 216, .98)",
+    middle: "rgba(24, 174, 116, .94)",
+    bottom: "rgba(0, 72, 53, .99)",
+    deep: "rgba(0, 29, 26, .99)",
+    edge: "rgba(224, 255, 241, .96)",
+    caustic: "rgba(131, 255, 206, .22)",
   },
 };
 
@@ -73,12 +83,15 @@ function traceSurface(
   time: number,
   active: boolean,
   ambientMotion: boolean,
+  phaseOffset: number,
 ) {
   const last = nodes.length - 1;
   const meniscus = Array.from(nodes, (node, index) => {
     const normalized = index / last;
     const wallRise = -4.2 * (Math.exp(-normalized * 18) + Math.exp(-(1 - normalized) * 18));
-    const breeze = ambientMotion ? ambientBreezeOffset(normalized, time, active) : 0;
+    const breeze = ambientMotion
+      ? ambientBreezeOffset(normalized, time, active, phaseOffset)
+      : 0;
     return node + wallRise + breeze;
   });
   const meniscusMean = meniscus.reduce((sum, value) => sum + value, 0) / meniscus.length;
@@ -104,6 +117,7 @@ function drawReservoir(
   time: number,
   active: boolean,
   ambientMotion: boolean,
+  phaseOffset: number,
 ) {
   context.clearRect(0, 0, width, height);
   const insetX = 5;
@@ -137,6 +151,7 @@ function drawReservoir(
     time,
     active,
     ambientMotion,
+    phaseOffset,
   );
   context.lineTo(insetX + innerWidth, liquidBottom);
   context.lineTo(insetX, liquidBottom);
@@ -180,7 +195,7 @@ function drawReservoir(
   const causticStart = liquidBottom - causticHeight;
   context.filter = "blur(5px)";
   for (let plume = 0; plume < 7; plume += 1) {
-    const seed = plume * 1.731;
+    const seed = plume * 1.731 + phaseOffset;
     const drift = Math.sin(time * (active ? 0.00044 : 0.00018) + seed) * 12
       + flowOffset[0] * 18;
     const centerX = insetX + ((plume + 0.45) / 7) * innerWidth + drift;
@@ -213,8 +228,8 @@ function drawReservoir(
   context.save();
   context.globalCompositeOperation = "screen";
   for (let index = 0; index < 38; index += 1) {
-    const seedX = ((index * 47) % 97) / 97;
-    const seedY = ((index * 29 + 11) % 101) / 101;
+    const seedX = ((index * 47 + phaseOffset * 17) % 97) / 97;
+    const seedY = ((index * 29 + 11 + phaseOffset * 13) % 101) / 101;
     const particleY = baseY + 8 + seedY * Math.max(0, liquidDepth - 16);
     if (particleY >= liquidBottom) continue;
     context.globalAlpha = 0.11 + (index % 5) * 0.028;
@@ -236,6 +251,7 @@ function drawReservoir(
     time,
     active,
     ambientMotion,
+    phaseOffset,
   );
   context.strokeStyle = palette.edge;
   context.lineWidth = 2.1;
@@ -255,10 +271,13 @@ function drawReservoir(
 
   const bubbleCount = percent < 8 ? 0 : percent > 70 ? 9 : 5;
   for (let index = 0; index < bubbleCount; index += 1) {
-    const seed = (index * 0.61803398875 + (palette === palettes.mint ? 0.17 : 0.03)) % 1;
+    const seed = (index * 0.61803398875 + phaseOffset / (Math.PI * 2)) % 1;
     const bubbleX = insetX + 18 + seed * (innerWidth - 36);
     const depth = 0.18 + ((index * 0.37) % 0.72);
-    const travel = active ? ((time * (0.003 + index * 0.00013) + index * 17) % Math.max(10, liquidDepth - 8)) : depth * liquidDepth;
+    const travel = active
+      ? ((time * (0.003 + index * 0.00013) + index * 17 + phaseOffset * 11)
+        % Math.max(10, liquidDepth - 8))
+      : depth * liquidDepth;
     const bubbleY = liquidBottom - 7 - travel;
     if (bubbleY <= baseY + 7) continue;
     const radius = 0.7 + (index % 3) * 0.55;
@@ -283,17 +302,25 @@ export function FluidReservoir({
   remainingPercent,
   accent,
   motion,
+  motionSeed,
   reducedMotion,
 }: FluidReservoirProps) {
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const fallbackCanvasRef = useRef<HTMLCanvasElement>(null);
-  const surfaceRef = useRef(
-    new FluidSurface(56, accent === "mint" ? { tension: 0.175, damping: 0.981 } : undefined),
-  );
+  const surfaceRef = useRef(new FluidSurface(56));
   const bodyMomentumRef = useRef(new FluidBodyMomentum());
   const frameRef = useRef<number | null>(null);
   const lastTimeRef = useRef(0);
   const drawRef = useRef<() => void>(() => undefined);
+  const dynamics = useMemo(
+    () => deriveFluidDynamics(remainingPercent, motionSeed),
+    [motionSeed, remainingPercent],
+  );
+
+  useEffect(() => {
+    surfaceRef.current.configure(dynamics);
+    bodyMomentumRef.current.configure(dynamics);
+  }, [dynamics]);
 
   useEffect(() => {
     const webglCanvas = webglCanvasRef.current;
@@ -329,6 +356,7 @@ export function FluidReservoir({
           timeMs: time,
           active: surface.isActive,
           ambientMotion: !reducedMotion,
+          phaseOffset: dynamics.phaseOffset,
         });
         return;
       }
@@ -357,6 +385,7 @@ export function FluidReservoir({
         time,
         surface.isActive,
         !reducedMotion,
+        dynamics.phaseOffset,
       );
     };
     drawRef.current = () => render();
@@ -382,7 +411,7 @@ export function FluidReservoir({
       if (ambientFrame !== null) cancelAnimationFrame(ambientFrame);
       opticalRenderer?.destroy();
     };
-  }, [accent, reducedMotion, remainingPercent]);
+  }, [accent, dynamics.phaseOffset, reducedMotion, remainingPercent]);
 
   useEffect(() => {
     const surface = surfaceRef.current;

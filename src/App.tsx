@@ -20,13 +20,22 @@ import type {
   TomatoConnectionSnapshot,
   ZCodeQuotaSnapshot,
 } from "./capacityTypes";
-import { IDLE_FLUID_MOTION, type FluidMotionSample } from "./fluidPhysics";
 import {
+  createFluidSessionSeed,
+  deriveChamberSeed,
+  IDLE_FLUID_MOTION,
+  type FluidMotionSample,
+} from "./fluidPhysics";
+import type { FluidAccent } from "./opticalFluidRenderer";
+import {
+  closeOverlaySettings,
   getOverlayWindowPosition,
+  openOverlaySettings,
   setOverlayWindowLayout,
   setOverlayWindowPosition,
   type OverlayLayout,
   type OverlayPosition,
+  type SettingsWindowPresentation,
 } from "./windowClient";
 
 export type CapacityLoader = () => Promise<CapacitySnapshot>;
@@ -44,6 +53,9 @@ interface AppProps {
   setWindowLayout?: (layout: OverlayLayout) => Promise<void>;
   getWindowPosition?: () => Promise<OverlayPosition>;
   setWindowPosition?: (position: OverlayPosition) => Promise<void>;
+  openSettingsWindow?: (layout: OverlayLayout) => Promise<SettingsWindowPresentation>;
+  closeSettingsWindow?: (presentation: SettingsWindowPresentation) => Promise<void>;
+  motionSessionSeed?: number;
 }
 
 type ViewState<S> =
@@ -250,13 +262,15 @@ function QuotaCell({
   accent,
   credits,
   motion,
+  motionSeed,
   reducedMotion,
 }: {
   label: "5 HOUR" | "WEEK";
   window: QuotaWindow | null;
-  accent: "cyan" | "mint" | "amber";
+  accent: FluidAccent;
   credits?: string;
   motion: FluidMotionSample;
+  motionSeed: number;
   reducedMotion: boolean;
 }) {
   const remaining = window?.remainingPercent ?? 0;
@@ -272,6 +286,7 @@ function QuotaCell({
           remainingPercent={remaining}
           accent={accent}
           motion={motion}
+          motionSeed={motionSeed}
           reducedMotion={reducedMotion}
         />
       )}
@@ -393,11 +408,11 @@ function CollapsedSurface({
     >
       <span>
         <strong>{fiveHourPercent === null ? "—" : `${formatPercent(fiveHourPercent)}%`}</strong>
-        <i className={`collapsed-dot collapsed-dot--${source}`} aria-hidden="true" />
+        <i className={`collapsed-dot collapsed-dot--${source} collapsed-dot--${source}-five-hour`} aria-hidden="true" />
       </span>
       <span>
         <strong>{weeklyPercent === null ? "—" : `${formatPercent(weeklyPercent)}%`}</strong>
-        <i className={`collapsed-dot collapsed-dot--${source}`} aria-hidden="true" />
+        <i className={`collapsed-dot collapsed-dot--${source} collapsed-dot--${source}-weekly`} aria-hidden="true" />
       </span>
     </button>
   );
@@ -429,12 +444,15 @@ export function App({
   setWindowLayout = setOverlayWindowLayout,
   getWindowPosition = getOverlayWindowPosition,
   setWindowPosition = setOverlayWindowPosition,
+  openSettingsWindow = openOverlaySettings,
+  closeSettingsWindow = closeOverlaySettings,
+  motionSessionSeed,
 }: AppProps) {
   const codexSlot = useSourceSlot(loadSnapshot, "Codex");
   const zcodeSlot = useSourceSlot(loadZcodeSnapshot, "ZCode");
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const [layoutMode, setLayoutMode] = useState<OverlayLayout>(initialLayout);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsPresentation, setSettingsPresentation] = useState<SettingsWindowPresentation | null>(null);
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [carouselSource, setCarouselSource] = useState<MeterSource>("codex");
   const [clickThroughSeconds, setClickThroughSeconds] = useState(0);
@@ -465,6 +483,16 @@ export function App({
   const motionSequenceRef = useRef(0);
   const previousMotionVelocityRef = useRef({ x: 0, y: 0 });
   const suppressCollapsedRestoreUntilRef = useRef(0);
+  const settingsTransitionRef = useRef(false);
+  const [fluidChamberSeeds] = useState(() => {
+    const sessionSeed = motionSessionSeed ?? createFluidSessionSeed();
+    return {
+      codexFiveHour: deriveChamberSeed(sessionSeed, "codex-five-hour"),
+      codexWeekly: deriveChamberSeed(sessionSeed, "codex-weekly"),
+      zcodeFiveHour: deriveChamberSeed(sessionSeed, "zcode-five-hour"),
+      zcodeWeekly: deriveChamberSeed(sessionSeed, "zcode-weekly"),
+    };
+  });
 
   const refreshAll = useCallback(() => {
     void codexSlot.load();
@@ -548,17 +576,6 @@ export function App({
     );
     return () => window.clearInterval(timer);
   }, [clickThroughSeconds]);
-
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setSettingsOpen(false);
-      settingsButtonRef.current?.focus();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [settingsOpen]);
 
   useEffect(() => () => {
     if (inertiaFrameRef.current !== null) cancelAnimationFrame(inertiaFrameRef.current);
@@ -715,11 +732,55 @@ export function App({
   const changeLayout = useCallback(
     (next: OverlayLayout) => {
       setLayoutMode(next);
-      setSettingsOpen(false);
       void setWindowLayout(next).catch(() => setControlMessage("窗口布局未能调整 · CRV-302"));
     },
     [setWindowLayout],
   );
+
+  const openSettings = useCallback(async () => {
+    if (settingsTransitionRef.current || settingsPresentation) return;
+    settingsTransitionRef.current = true;
+    stopWindowInertia();
+    try {
+      const presentation = await openSettingsWindow(layoutMode);
+      setSettingsPresentation(presentation);
+    } catch {
+      setControlMessage("设置窗口未能打开 · CRV-302");
+    } finally {
+      settingsTransitionRef.current = false;
+    }
+  }, [layoutMode, openSettingsWindow, settingsPresentation, stopWindowInertia]);
+
+  const closeSettings = useCallback(async () => {
+    if (settingsTransitionRef.current || !settingsPresentation) return;
+    settingsTransitionRef.current = true;
+    try {
+      await closeSettingsWindow(settingsPresentation);
+      setSettingsPresentation(null);
+      settingsButtonRef.current?.focus();
+    } catch {
+      setControlMessage("设置窗口未能复位 · CRV-302");
+    } finally {
+      settingsTransitionRef.current = false;
+    }
+  }, [closeSettingsWindow, settingsPresentation]);
+
+  const toggleSettings = useCallback(async () => {
+    if (settingsPresentation) {
+      await closeSettings();
+      return;
+    }
+    await openSettings();
+  }, [closeSettings, openSettings, settingsPresentation]);
+
+  useEffect(() => {
+    if (!settingsPresentation) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") void closeSettings();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [closeSettings, settingsPresentation]);
 
   const restoreCollapsedLayout = useCallback(() => {
     if (performance.now() < suppressCollapsedRestoreUntilRef.current) return;
@@ -745,8 +806,10 @@ export function App({
   const stale = staleFromFailure || activeSnapshot?.sourceState === "stale";
   const failureDiagnostic = activeSlot.view.kind === "failed" ? activeSlot.view.diagnostic : undefined;
   const routeBlocked = routeConnection?.state === "blocked";
-  const collapsed = layoutMode === "collapsed" && activeSnapshot !== null;
-  const expanded = layoutMode === "expanded";
+  const visibleLayout = settingsPresentation?.baseLayout ?? layoutMode;
+  const settingsOpen = settingsPresentation !== null;
+  const collapsed = visibleLayout === "collapsed" && activeSnapshot !== null;
+  const expanded = visibleLayout === "expanded";
 
   const detailActions = (
     <div className="detail-actions">
@@ -757,7 +820,7 @@ export function App({
         {clickThroughSeconds > 0 ? `穿透 ${clickThroughSeconds}s` : "穿透 10 秒"}
       </button>
       <button type="button" onClick={() => changeLayout("collapsed")}>收起为窄条</button>
-      <button ref={settingsButtonRef} type="button" onClick={() => setSettingsOpen((value) => !value)}>
+      <button ref={settingsButtonRef} type="button" onClick={() => void toggleSettings()}>
         <Icon name="settings" />
         <span>设置</span>
       </button>
@@ -766,19 +829,18 @@ export function App({
 
   return (
     <main
-      className={`app-frame app-frame--${layoutMode} ${preferences.reducedMotion ? "reduce-motion" : ""} ${isWindowDragging ? "is-dragging" : ""}`}
+      className={`app-frame app-frame--${visibleLayout}${settingsPresentation ? ` app-frame--settings-${settingsPresentation.placement}` : ""} ${preferences.reducedMotion ? "reduce-motion" : ""} ${isWindowDragging ? "is-dragging" : ""}`}
       style={{ "--surface-opacity": preferences.opacity } as React.CSSProperties}
       onContextMenu={(event) => {
         event.preventDefault();
-        if (collapsed) changeLayout("compact");
-        setSettingsOpen((value) => !value);
+        void toggleSettings();
       }}
       onPointerDown={handleDragStart}
       onPointerMove={handleDragMove}
       onPointerUp={handleDragEnd}
       onPointerCancel={handleDragEnd}
     >
-      <div className={`glass-shell glass-shell--${layoutMode} ${stale ? "glass-shell--stale" : ""} ${routeBlocked && !activeIsZcode ? "glass-shell--route-blocked" : ""}`}>
+      <div className={`glass-shell glass-shell--${visibleLayout} ${stale ? "glass-shell--stale" : ""} ${routeBlocked && !activeIsZcode ? "glass-shell--route-blocked" : ""}`}>
         <OpticalShell
           dragging={isWindowDragging}
           reducedMotion={preferences.reducedMotion}
@@ -812,26 +874,28 @@ export function App({
                     <QuotaCell
                       label="5 HOUR"
                       window={zcodeSnapshot.fiveHour}
-                      accent="amber"
+                      accent="moonlight"
                       credits={zcodeSnapshot.fiveHour ? formatCredits(zcodeSnapshot.fiveHour) : undefined}
                       motion={fluidMotion}
+                      motionSeed={fluidChamberSeeds.zcodeFiveHour}
                       reducedMotion={preferences.reducedMotion}
                     />
                     {zcodeSnapshot.weekly && (
                       <QuotaCell
                         label="WEEK"
                         window={zcodeSnapshot.weekly}
-                        accent="amber"
+                        accent="emerald"
                         credits={formatCredits(zcodeSnapshot.weekly)}
                         motion={fluidMotion}
+                        motionSeed={fluidChamberSeeds.zcodeWeekly}
                         reducedMotion={preferences.reducedMotion}
                       />
                     )}
                   </>
                 ) : !activeIsZcode && codexSnapshot ? (
                   <>
-                    <QuotaCell label="5 HOUR" window={codexSnapshot.fiveHour} accent="cyan" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
-                    <QuotaCell label="WEEK" window={codexSnapshot.weekly} accent="mint" motion={fluidMotion} reducedMotion={preferences.reducedMotion} />
+                    <QuotaCell label="5 HOUR" window={codexSnapshot.fiveHour} accent="cyan" motion={fluidMotion} motionSeed={fluidChamberSeeds.codexFiveHour} reducedMotion={preferences.reducedMotion} />
+                    <QuotaCell label="WEEK" window={codexSnapshot.weekly} accent="mint" motion={fluidMotion} motionSeed={fluidChamberSeeds.codexWeekly} reducedMotion={preferences.reducedMotion} />
                   </>
                 ) : null}
               </div>
@@ -898,11 +962,13 @@ export function App({
           </>
         )}
 
-        {settingsOpen && (
-          <aside className="settings-popover" role="dialog" aria-modal="false" aria-labelledby="settings-title">
+      </div>
+
+      {settingsOpen && (
+        <aside className="settings-popover" role="dialog" aria-modal="false" aria-labelledby="settings-title">
             <div className="settings-heading">
               <strong id="settings-title">显示设置</strong>
-              <button type="button" aria-label="关闭设置" onClick={() => setSettingsOpen(false)}><Icon name="close" /></button>
+              <button type="button" aria-label="关闭设置" onClick={() => void closeSettings()}><Icon name="close" /></button>
             </div>
             <label>
               <span>透明度 {Math.round(preferences.opacity * 100)}%</span>
@@ -928,6 +994,7 @@ export function App({
               <span>额度来源</span>
               <div className="source-segments" role="group" aria-label="额度来源">
                 <button
+                  className="source-segment source-segment--codex"
                   type="button"
                   aria-pressed={sourceSelection === "codex"}
                   onClick={() => updatePreferences({ ...preferences, source: "codex" })}
@@ -935,6 +1002,7 @@ export function App({
                   Codex
                 </button>
                 <button
+                  className="source-segment source-segment--zcode"
                   type="button"
                   aria-pressed={sourceSelection === "zcode"}
                   onClick={() => updatePreferences({ ...preferences, source: "zcode" })}
@@ -942,6 +1010,7 @@ export function App({
                   Zcode
                 </button>
                 <button
+                  className="source-segment source-segment--carousel"
                   type="button"
                   aria-pressed={sourceSelection === "carousel"}
                   onClick={() => updatePreferences({ ...preferences, source: "carousel" })}
@@ -951,10 +1020,9 @@ export function App({
               </div>
             </div>
             <small>右键可再次打开 · 不会注册开机启动</small>
-          </aside>
-        )}
-        {controlMessage && <span className="control-message" role="status">{controlMessage}</span>}
-      </div>
+        </aside>
+      )}
+      {controlMessage && <span className="control-message" role="status">{controlMessage}</span>}
     </main>
   );
 }

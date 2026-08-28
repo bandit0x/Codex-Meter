@@ -10,9 +10,10 @@ export interface OpticalFluidFrame {
   timeMs: number;
   active: boolean;
   ambientMotion: boolean;
+  phaseOffset: number;
 }
 
-type Accent = "cyan" | "mint" | "amber";
+export type FluidAccent = "cyan" | "mint" | "moonlight" | "emerald";
 
 interface OpticalPalette {
   top: [number, number, number];
@@ -22,7 +23,7 @@ interface OpticalPalette {
   accent: [number, number, number];
 }
 
-const PALETTES: Record<Accent, OpticalPalette> = {
+const PALETTES: Record<FluidAccent, OpticalPalette> = {
   cyan: {
     top: [0.48, 0.94, 1.0],
     middle: [0.018, 0.52, 0.76],
@@ -37,12 +38,19 @@ const PALETTES: Record<Accent, OpticalPalette> = {
     absorption: [1.78, 0.54, 0.39],
     accent: [0.5, 0.98, 0.86],
   },
-  amber: {
-    top: [1.0, 0.84, 0.54],
-    middle: [0.78, 0.5, 0.047],
-    deep: [0.34, 0.176, 0.0],
-    absorption: [0.34, 0.6, 1.66],
-    accent: [1.0, 0.72, 0.29],
+  moonlight: {
+    top: [0.91, 0.98, 1.0],
+    middle: [0.38, 0.58, 0.66],
+    deep: [0.035, 0.17, 0.22],
+    absorption: [0.48, 0.26, 0.18],
+    accent: [0.78, 0.91, 0.95],
+  },
+  emerald: {
+    top: [0.64, 1.0, 0.84],
+    middle: [0.016, 0.56, 0.36],
+    deep: [0.0, 0.19, 0.14],
+    absorption: [1.82, 0.48, 0.86],
+    accent: [0.4, 0.96, 0.69],
   },
 };
 
@@ -65,6 +73,7 @@ uniform float uRemaining;
 uniform float uTime;
 uniform float uActive;
 uniform float uAmbientMotion;
+uniform float uPhaseOffset;
 uniform vec2 uFlowOffset;
 uniform float uAgitation;
 uniform float uSurface[${OPTICAL_SURFACE_NODE_COUNT}];
@@ -135,10 +144,12 @@ float freeSurfaceOffset(float normalizedX) {
   ) + 0.58;
   float ambientRipple = (
     sin(x * ${AMBIENT_BREEZE.primarySpatialFrequency.toFixed(1)}
-      + uTime * ${AMBIENT_BREEZE.primaryTemporalFrequency.toFixed(2)})
+      + uTime * ${AMBIENT_BREEZE.primaryTemporalFrequency.toFixed(2)}
+      + uPhaseOffset)
       * ${AMBIENT_BREEZE.primaryWeight.toFixed(2)}
     + sin(x * ${AMBIENT_BREEZE.secondarySpatialFrequency.toFixed(1)}
-      - uTime * ${AMBIENT_BREEZE.secondaryTemporalFrequency.toFixed(2)})
+      - uTime * ${AMBIENT_BREEZE.secondaryTemporalFrequency.toFixed(2)}
+      - uPhaseOffset * 0.73)
       * ${AMBIENT_BREEZE.secondaryWeight.toFixed(2)}
   ) * mix(
     ${AMBIENT_BREEZE.idleStrength.toFixed(2)},
@@ -238,7 +249,8 @@ void main() {
     body *= mix(vec3(0.58), vec3(1.08), horizontalVolume);
 
     float flowTime = uTime * mix(0.16, 0.42, uActive);
-    vec2 flowDomain = vec2(normalizedX * 4.8, depth * 4.1);
+    vec2 chamberDomainOffset = vec2(cos(uPhaseOffset), sin(uPhaseOffset)) * 1.7;
+    vec2 flowDomain = vec2(normalizedX * 4.8, depth * 4.1) + chamberDomainOffset;
     vec2 transportedFlow = uFlowOffset * vec2(1.2, -0.9);
     vec2 velocityDomain = flowDomain * 0.74
       + vec2(flowTime * 0.13, -flowTime * 0.07)
@@ -285,7 +297,7 @@ void main() {
 
     float aspect = uResolution.x / uResolution.y;
     for (int bubbleIndex = 0; bubbleIndex < 10; bubbleIndex += 1) {
-      float seed = float(bubbleIndex) + (uAccent.g > 0.9 ? 3.7 : 0.9);
+      float seed = float(bubbleIndex) + uPhaseOffset * 2.37;
       float bubbleX = 0.09 + hash11(seed * 2.13) * 0.82;
       float bubbleSpeed = 0.014 + hash11(seed * 4.7) * 0.018;
       float bubbleY = fract(hash11(seed * 8.31) + uTime * bubbleSpeed * mix(0.62, 1.0, uActive));
@@ -307,7 +319,10 @@ void main() {
     color += mix(uAccent, vec3(0.94, 1.0, 1.0), 0.72) * meniscus * 0.92;
     color += uAccent * surfaceLens * (0.16 + surfaceFresnel * 1.4);
     color -= vec3(0.0, 0.055, 0.075) * underside * 0.58;
-    float travelingGlint = pow(0.5 + 0.5 * sin(normalizedX * 32.0 - uTime * 1.8), 9.0);
+    float travelingGlint = pow(
+      0.5 + 0.5 * sin(normalizedX * 32.0 - uTime * 1.8 + uPhaseOffset),
+      9.0
+    );
     float glintBand = exp(-pow((fragment.y - surfaceY - 6.0 * ratio) / (7.0 * ratio), 2.0));
     color += vec3(0.72, 1.0, 0.96) * travelingGlint * glintBand * 0.13;
   }
@@ -374,7 +389,7 @@ export class OpticalFluidRenderer {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    accent: Accent,
+    accent: FluidAccent,
   ) {
     const gl = canvas.getContext("webgl2", {
       alpha: true,
@@ -418,6 +433,7 @@ export class OpticalFluidRenderer {
       time: requireUniform(gl, program, "uTime"),
       active: requireUniform(gl, program, "uActive"),
       ambientMotion: requireUniform(gl, program, "uAmbientMotion"),
+      phaseOffset: requireUniform(gl, program, "uPhaseOffset"),
       flowOffset: requireUniform(gl, program, "uFlowOffset"),
       agitation: requireUniform(gl, program, "uAgitation"),
       surface: requireUniform(gl, program, "uSurface[0]"),
@@ -452,6 +468,7 @@ export class OpticalFluidRenderer {
     gl.uniform1f(uniforms.time, frame.timeMs / 1_000);
     gl.uniform1f(uniforms.active, frame.active ? 1 : 0);
     gl.uniform1f(uniforms.ambientMotion, frame.ambientMotion ? 1 : 0);
+    gl.uniform1f(uniforms.phaseOffset, frame.phaseOffset);
     gl.uniform2f(uniforms.flowOffset, frame.flowOffset[0], frame.flowOffset[1]);
     gl.uniform1f(uniforms.agitation, frame.agitation);
     gl.uniform1fv(uniforms.surface, frame.surface);

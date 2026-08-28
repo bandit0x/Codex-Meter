@@ -14,6 +14,14 @@ const inertPreferences = {
   savePreferences: async () => undefined,
   enableClickThrough: async () => undefined,
   setWindowLayout: async () => undefined,
+  openSettingsWindow: async () => ({
+    baseLayout: "compact" as const,
+    placement: "above" as const,
+    windowPosition: { x: 0, y: 0 },
+    windowSize: { width: 300, height: 278 },
+    restore: { layout: "compact" as const, position: { x: 0, y: 148 } },
+  }),
+  closeSettingsWindow: async () => undefined,
   loadTomatoConnection: async (): Promise<TomatoConnectionSnapshot> => ({
     state: "healthy",
     countryCode: "UK",
@@ -402,6 +410,41 @@ describe("Codex capacity overlay", () => {
     expect(screen.queryByRole("dialog", { name: "显示设置" })).not.toBeInTheDocument();
   });
 
+  it("anchors settings above a collapsed shell and restores the prior layout on Escape", async () => {
+    const user = userEvent.setup();
+    const openSettingsWindow = vi.fn(async () => ({
+      baseLayout: "compact" as const,
+      placement: "above" as const,
+      windowPosition: { x: 80, y: 252 },
+      windowSize: { width: 300, height: 278 },
+      restore: { layout: "collapsed" as const, position: { x: 80, y: 400 } },
+    }));
+    const closeSettingsWindow = vi.fn(async () => undefined);
+    const { container } = render(
+      <App
+        {...inertPreferences}
+        initialLayout="collapsed"
+        loadSnapshot={async () => healthySnapshot}
+        openSettingsWindow={openSettingsWindow}
+        closeSettingsWindow={closeSettingsWindow}
+      />,
+    );
+
+    await screen.findByRole("button", { name: "恢复标准视图" });
+    fireEvent.contextMenu(container.querySelector("main")!);
+
+    expect(await screen.findByRole("dialog", { name: "显示设置" })).toBeInTheDocument();
+    expect(openSettingsWindow).toHaveBeenCalledWith("collapsed");
+    expect(container.querySelector("main")).toHaveClass(
+      "app-frame--compact",
+      "app-frame--settings-above",
+    );
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(closeSettingsWindow).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "恢复标准视图" })).toBeInTheDocument();
+  });
+
   it("prevents a second manual refresh while the first refresh is pending", async () => {
     const user = userEvent.setup();
     let attempt = 0;
@@ -453,9 +496,11 @@ describe("dual quota sources", () => {
     );
 
     const fiveHour = await screen.findByRole("group", { name: "5 HOUR quota" });
+    expect(fiveHour).toHaveClass("quota-cell--moonlight");
     expect(within(fiveHour).getByText("76%", { exact: false })).toBeInTheDocument();
     expect(within(fiveHour).getByText("1520 / 2000")).toBeInTheDocument();
     const weekly = screen.getByRole("group", { name: "WEEK quota" });
+    expect(weekly).toHaveClass("quota-cell--emerald");
     expect(within(weekly).getByText("42%", { exact: false })).toBeInTheDocument();
     expect(within(weekly).getByText("4200 / 10000")).toBeInTheDocument();
     expect(screen.getByText("ZCODE")).toBeInTheDocument();
@@ -527,7 +572,7 @@ describe("dual quota sources", () => {
     expect(screen.getByText(/诊断码 CRV-502/)).toBeInTheDocument();
 
     fireEvent.contextMenu(container.querySelector(".app-frame") as HTMLElement);
-    await user.click(screen.getByRole("button", { name: "Codex" }));
+    await user.click(await screen.findByRole("button", { name: "Codex" }));
 
     expect(await screen.findByText("76%", { exact: false })).toBeInTheDocument();
     expect(screen.getByText(/FULL RESETS/)).toBeInTheDocument();
@@ -554,7 +599,7 @@ describe("dual quota sources", () => {
     expect(container.querySelector(".glass-shell--route-blocked")).toBeNull();
 
     fireEvent.contextMenu(container.querySelector(".app-frame") as HTMLElement);
-    await user.click(screen.getByRole("button", { name: "Codex" }));
+    await user.click(await screen.findByRole("button", { name: "Codex" }));
 
     await waitFor(
       () => expect(screen.getByText("TomatoCloud route is unavailable")).toBeInTheDocument(),

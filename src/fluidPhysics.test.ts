@@ -1,12 +1,38 @@
 import { describe, expect, it } from "vitest";
 import {
   ambientBreezeOffset,
+  deriveChamberSeed,
+  deriveFluidDynamics,
   FluidBodyMomentum,
   FluidSurface,
   linearLiquidLevel,
 } from "./fluidPhysics";
 
 describe("volumetric fluid surface", () => {
+  it("derives stable liquid dynamics from chamber seed and remaining capacity", () => {
+    const shallow = deriveFluidDynamics(20, 0.35);
+    const repeated = deriveFluidDynamics(20, 0.35);
+    const deep = deriveFluidDynamics(80, 0.35);
+
+    expect(repeated).toEqual(shallow);
+    expect(shallow.tension).toBeGreaterThan(deep.tension);
+    expect(shallow.damping).toBeLessThan(deep.damping);
+    expect(shallow.surfaceImpulse).toBeGreaterThan(deep.surfaceImpulse);
+    expect(deep.bodyImpulse).toBeGreaterThan(shallow.bodyImpulse);
+  });
+
+  it("derives stable but distinct chamber seeds within one launch", () => {
+    const sessionSeed = 0.314159;
+    const fiveHour = deriveChamberSeed(sessionSeed, "zcode-five-hour");
+    const repeated = deriveChamberSeed(sessionSeed, "zcode-five-hour");
+    const weekly = deriveChamberSeed(sessionSeed, "zcode-weekly");
+
+    expect(repeated).toBe(fiveHour);
+    expect(weekly).not.toBe(fiveHour);
+    expect(fiveHour).toBeGreaterThanOrEqual(0);
+    expect(fiveHour).toBeLessThan(1);
+  });
+
   it("maps remaining percentage linearly to the physical liquid level", () => {
     expect(linearLiquidLevel(0, 10, 180)).toBe(190);
     expect(linearLiquidLevel(18, 10, 180)).toBeCloseTo(157.6);
@@ -45,6 +71,29 @@ describe("volumetric fluid surface", () => {
 
     const mean = surface.heights.reduce((sum, value) => sum + value, 0) / surface.heights.length;
     expect(Math.abs(mean)).toBeLessThan(0.0001);
+  });
+
+  it("gives two chamber seeds visibly different responses to the same drag", () => {
+    const fiveHour = new FluidSurface();
+    const weekly = new FluidSurface();
+    fiveHour.configure(deriveFluidDynamics(72, 0.18));
+    weekly.configure(deriveFluidDynamics(41, 0.81));
+
+    fiveHour.disturb(1.9, -0.45, true);
+    weekly.disturb(1.9, -0.45, true);
+    for (let frame = 0; frame < 48; frame += 1) {
+      fiveHour.step();
+      weekly.step();
+    }
+
+    const fiveHourHeights = Array.from(fiveHour.heights);
+    const weeklyHeights = Array.from(weekly.heights);
+    const fiveHourMean = fiveHourHeights.reduce((sum, value) => sum + value, 0) / fiveHourHeights.length;
+    const weeklyMean = weeklyHeights.reduce((sum, value) => sum + value, 0) / weeklyHeights.length;
+
+    expect(fiveHourHeights).not.toEqual(weeklyHeights);
+    expect(Math.abs(fiveHourMean)).toBeLessThan(0.0001);
+    expect(Math.abs(weeklyMean)).toBeLessThan(0.0001);
   });
 
   it("keeps the two reservoir states independent", () => {

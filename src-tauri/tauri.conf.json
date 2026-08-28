@@ -19,7 +19,7 @@
         "minWidth": 260,
         "minHeight": 48,
         "maxWidth": 340,
-        "maxHeight": 160,
+        "maxHeight": 320,
         "center": true,
         "transparent": true,
         "decorations": false,
