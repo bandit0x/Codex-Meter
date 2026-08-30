@@ -299,7 +299,11 @@ function QuotaCell({
         </div>
         {window && credits && <span className="quota-credits">{credits}</span>}
         <span className="reset-time">
-          {window ? `Resets ${formatReset(window.resetsAt, label === "WEEK")}` : "Data unavailable"}
+          {window
+            ? window.resetsAt === null
+              ? "Resets —"
+              : `Resets ${formatReset(window.resetsAt, label === "WEEK")}`
+            : "Data unavailable"}
         </span>
         <div className="scale-line" aria-hidden="true">
           <span className="scale-line__axis" />

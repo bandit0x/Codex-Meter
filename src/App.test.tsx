@@ -76,6 +76,11 @@ const healthyZcodeSnapshot: ZCodeQuotaSnapshot = {
   observedAtMs: 1_800_000_000_000,
 };
 
+const zcodeSnapshotWithoutReset: ZCodeQuotaSnapshot = {
+  ...healthyZcodeSnapshot,
+  fiveHour: { ...healthyZcodeSnapshot.fiveHour!, resetsAt: null },
+};
+
 const basePreferences: DisplayPreferences = {
   opacity: 0.92,
   reducedMotion: false,
@@ -548,6 +553,22 @@ describe("dual quota sources", () => {
     expect(screen.getByText("ZCODE")).toBeInTheDocument();
     expect(screen.getByText("PRO")).toBeInTheDocument();
     expect(screen.queryByText(/FULL RESETS/)).not.toBeInTheDocument();
+  });
+
+  it("renders a placeholder when the ZCode window has no reset time", async () => {
+    render(
+      <App
+        {...inertPreferences}
+        loadPreferences={async () => ({ ...basePreferences, source: "zcode" })}
+        loadSnapshot={async () => healthySnapshot}
+        loadZcodeSnapshot={async () => zcodeSnapshotWithoutReset}
+      />,
+    );
+
+    const fiveHour = await screen.findByRole("group", { name: "5 HOUR quota" });
+    expect(within(fiveHour).getByText("Resets —")).toBeInTheDocument();
+    const weekly = screen.getByRole("group", { name: "WEEK quota" });
+    expect(within(weekly).getByText(/Resets /)).toBeInTheDocument();
   });
 
   it("renders a single ZCode cell when only the five-hour window exists", async () => {

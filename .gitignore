@@ -12,6 +12,8 @@ test-results/
 playwright-report/
 *.log
 release/
+speedtest-proxy.tmp
+CodexMeter-*-win-x64/
 
 # Local secrets and signing material
 .env

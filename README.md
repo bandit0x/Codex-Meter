@@ -50,6 +50,8 @@ _图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK ·
 
 - 修复 TomatoCloud 短暂失败并恢复时的 stale 视觉处理，Codex 的两个液体舱不再被统一去色为月光银
 - 保留 stale 数据提示的降亮度效果，同时维持 5 小时舱 cyan 与周舱 mint 的语义色
+- 修复 ZCode 0 用量窗口触发 `CRV-508` 的问题：bigmodel 端点对未消耗的 5 小时窗口不返回 `nextResetTime`，快照不再因此整体失败，重置时间缺失时显示 `Resets —`
+- ZCode 窗口归属改为按响应中的 `unit`/`number` 识别（3/5 为 5 小时、6/1 为周），周窗口恰好 0 用量时两个舱的数据不再互换
 - 补充“TomatoCloud 失败 → 恢复”时序的前端回归测试，并更新 0.1.5 便携包、安装包与桌面快捷方式
 
 ### 0.1.4

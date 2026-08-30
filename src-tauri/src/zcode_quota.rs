@@ -30,7 +30,8 @@ pub struct ZCodeQuotaWindow {
     pub used_percent: f64,
     pub remaining_percent: f64,
     pub window_duration_mins: u64,
-    pub resets_at: u64,
+    // bigmodel 端点对 0 用量窗口不返回 nextResetTime
+    pub resets_at: Option<u64>,
     pub quota_total: u64,
     pub quota_used: u64,
     pub quota_remaining: u64,
@@ -353,11 +354,20 @@ fn parse_quota_payload(raw: &str) -> Result<ZCodeQuotaSnapshot, Diagnostic> {
     }
     limits.sort_by_key(|limit| limit.next_reset_time.unwrap_or(0));
 
-    let five_hour = to_window(limits.first().expect("limits is not empty"))?;
-    let weekly = if limits.len() > 1 {
-        Some(to_window(limits.last().expect("limits is not empty"))?)
-    } else {
-        None
+    // 窗口归属按 API 的 unit/number 识别；0 用量窗口可能没有 nextResetTime，
+    // 仅按重置时间排序会把未启用窗口排到 5 小时舱
+    let five_hour_limit = limits
+        .iter()
+        .find(|limit| is_five_hour_window(limit))
+        .unwrap_or_else(|| limits.first().expect("limits is not empty"));
+    let five_hour = to_window(five_hour_limit)?;
+    let weekly_limit = limits
+        .iter()
+        .find(|limit| is_weekly_window(limit))
+        .or_else(|| (limits.len() > 1).then(|| limits.last().expect("limits is not empty")));
+    let weekly = match weekly_limit {
+        Some(limit) => Some(to_window(limit)?),
+        None => None,
     };
 
     Ok(ZCodeQuotaSnapshot {
@@ -372,6 +382,14 @@ fn parse_quota_payload(raw: &str) -> Result<ZCodeQuotaSnapshot, Diagnostic> {
     })
 }
 
+fn is_five_hour_window(limit: &QuotaLimit) -> bool {
+    matches!((limit.unit, limit.number), (Some(3), Some(5)))
+}
+
+fn is_weekly_window(limit: &QuotaLimit) -> bool {
+    matches!((limit.unit, limit.number), (Some(6), Some(1)))
+}
+
 fn to_window(limit: &QuotaLimit) -> Result<ZCodeQuotaWindow, Diagnostic> {
     let invalid =
         |detail: &str| Diagnostic::new("CRV-508", "ZCode 配额窗口数据异常").with_detail(detail);
@@ -381,9 +399,6 @@ fn to_window(limit: &QuotaLimit) -> Result<ZCodeQuotaWindow, Diagnostic> {
     if !percentage.is_finite() || !(0.0..=100.0).contains(&percentage) {
         return Err(invalid("percentage 超出 0-100 范围"));
     }
-    let Some(next_reset_time) = limit.next_reset_time else {
-        return Err(invalid("配额窗口缺少 nextResetTime"));
-    };
     let Some(quota_total) = limit.usage else {
         return Err(invalid("配额窗口缺少 usage"));
     };
@@ -397,7 +412,7 @@ fn to_window(limit: &QuotaLimit) -> Result<ZCodeQuotaWindow, Diagnostic> {
         used_percent: percentage,
         remaining_percent: 100.0 - percentage,
         window_duration_mins: window_duration_mins(limit.unit, limit.number),
-        resets_at: next_reset_time / 1000,
+        resets_at: limit.next_reset_time.map(|value| value / 1000),
         quota_total,
         quota_used,
         quota_remaining,
@@ -443,7 +458,7 @@ mod tests {
         assert!((five_hour.used_percent - 24.0).abs() < f64::EPSILON);
         assert!((five_hour.remaining_percent - 76.0).abs() < f64::EPSILON);
         assert_eq!(five_hour.window_duration_mins, 300);
-        assert_eq!(five_hour.resets_at, 1_787_810_092);
+        assert_eq!(five_hour.resets_at, Some(1_787_810_092));
         assert_eq!(five_hour.quota_total, 2000);
         assert_eq!(five_hour.quota_used, 480);
         assert_eq!(five_hour.quota_remaining, 1520);
@@ -451,7 +466,7 @@ mod tests {
         let weekly = snapshot.weekly.expect("weekly window");
         assert!((weekly.used_percent - 58.0).abs() < f64::EPSILON);
         assert_eq!(weekly.window_duration_mins, 10_080);
-        assert_eq!(weekly.resets_at, 1_788_395_128);
+        assert_eq!(weekly.resets_at, Some(1_788_395_128));
 
         assert_eq!(snapshot.plan_level.as_deref(), Some("pro"));
         assert!(snapshot.observed_at_ms > 0);
@@ -502,11 +517,39 @@ mod tests {
     }
 
     #[test]
-    fn missing_next_reset_time_maps_to_crv_508() {
+    fn missing_next_reset_time_yields_window_without_reset() {
         let raw = r#"{"code":200,"success":true,"data":{"limits":[{"type":"CREDIT_LIMIT","usage":120,"currentValue":30,"remaining":90,"percentage":25}]}}"#;
-        let error = parse_quota_payload(raw).expect_err("expect failure");
-        assert_eq!(error.code, "CRV-508");
-        assert!(error.detail.expect("detail").contains("nextResetTime"));
+        let snapshot = parse_quota_payload(raw).expect("parse window without reset time");
+        let five_hour = snapshot.five_hour.expect("five hour window");
+        assert!(five_hour.resets_at.is_none());
+        assert!((five_hour.used_percent - 25.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn unused_five_hour_window_without_reset_time_parses_both_chambers() {
+        let raw = r#"{"code":200,"success":true,"data":{"limits":[
+            {"type":"CREDIT_LIMIT","unit":3,"number":5,"usage":2000,"currentValue":0,"remaining":2000,"percentage":0},
+            {"type":"CREDIT_LIMIT","unit":6,"number":1,"usage":10000,"currentValue":8209,"remaining":1790,"percentage":82,"nextResetTime":1788395128998}
+        ],"level":"lite"}}"#;
+        let snapshot = parse_quota_payload(raw).expect("parse live payload");
+        let five_hour = snapshot.five_hour.expect("five hour window");
+        assert_eq!(five_hour.quota_total, 2000);
+        assert!(five_hour.resets_at.is_none());
+        let weekly = snapshot.weekly.expect("weekly window");
+        assert_eq!(weekly.resets_at, Some(1_788_395_128));
+    }
+
+    #[test]
+    fn fresh_weekly_window_without_reset_time_is_not_swapped_into_five_hour_slot() {
+        let raw = r#"{"code":200,"success":true,"data":{"limits":[
+            {"type":"CREDIT_LIMIT","unit":6,"number":1,"usage":10000,"currentValue":0,"remaining":10000,"percentage":0},
+            {"type":"CREDIT_LIMIT","unit":3,"number":5,"usage":2000,"currentValue":480,"remaining":1520,"percentage":24,"nextResetTime":1787810092514}
+        ]}}"#;
+        let snapshot = parse_quota_payload(raw).expect("parse payload");
+        let five_hour = snapshot.five_hour.expect("five hour window");
+        assert_eq!(five_hour.quota_total, 2000);
+        let weekly = snapshot.weekly.expect("weekly window");
+        assert_eq!(weekly.quota_total, 10000);
     }
 
     #[test]

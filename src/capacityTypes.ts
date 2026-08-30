@@ -2,7 +2,8 @@ export interface QuotaWindow {
   usedPercent: number;
   remainingPercent: number;
   windowDurationMins: number;
-  resetsAt: number;
+  // ZCode 的 0 用量窗口没有重置时间，Codex 恒有
+  resetsAt: number | null;
 }
 
 export interface FullResetCredits {
@@ -22,7 +23,7 @@ export interface ZCodeQuotaWindow {
   usedPercent: number;
   remainingPercent: number;
   windowDurationMins: number;
-  resetsAt: number;
+  resetsAt: number | null;
   quotaTotal: number;
   quotaUsed: number;
   quotaRemaining: number;
