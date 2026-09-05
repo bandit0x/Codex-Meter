@@ -1,4 +1,4 @@
-import { getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
+import { currentMonitor, getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
 
 export type OverlayLayout = "collapsed" | "compact" | "expanded";
 
@@ -83,7 +83,19 @@ export async function setOverlayWindowPosition(position: OverlayPosition): Promi
   await getCurrentWindow().setPosition(new LogicalPosition(position.x, position.y));
 }
 
-function getOverlayWorkArea(): OverlayWorkArea {
+export async function getOverlayWorkArea(): Promise<OverlayWorkArea> {
+  // WKWebView 不暴露 Chromium 专属的 screen.availLeft/availTop，优先用 Tauri
+  // 的 currentMonitor 拿跨平台工作区；坐标统一折算成逻辑像素。
+  const monitor = await currentMonitor().catch(() => null);
+  if (monitor) {
+    const scale = monitor.scaleFactor || 1;
+    return {
+      left: monitor.workArea.position.x / scale,
+      top: monitor.workArea.position.y / scale,
+      width: monitor.workArea.size.width / scale,
+      height: monitor.workArea.size.height / scale,
+    };
+  }
   const screenWithOffsets = window.screen as Screen & { availLeft?: number; availTop?: number };
   return {
     left: screenWithOffsets.availLeft ?? 0,
@@ -102,7 +114,8 @@ export async function openOverlaySettings(
     appWindow.scaleFactor(),
   ]);
   const position = physicalPosition.toLogical(scaleFactor);
-  const presentation = planSettingsWindowPresentation(layout, position, getOverlayWorkArea());
+  const workArea = await getOverlayWorkArea();
+  const presentation = planSettingsWindowPresentation(layout, position, workArea);
 
   try {
     await appWindow.setPosition(new LogicalPosition(
