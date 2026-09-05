@@ -195,6 +195,18 @@ npm.cmd run package:installer
 
 输出位于 `release/CodexMeter-<版本>-win-x64-setup.exe`。安装器会内置 Codex 与 WebView2 运行时，并在桌面创建或替换 `Codex Meter` 快捷方式。
 
+### macOS 构建（实验性）
+
+macOS 11+（Intel 或 Apple Silicon），需要 Node.js 24、Rust 工具链和 Xcode Command Line Tools：
+
+```bash
+npm ci
+npm run tauri:dev        # 开发模式
+npm run package:app      # 构建 .app / .dmg
+```
+
+输出位于 `release/macos/Codex Meter.app`。开发构建默认使用测试夹具，连接真实 Codex 账号时设置 `CODEX_CREDITS_USE_LIVE=1`。macOS 版应用不进 Dock，只驻留菜单栏图标；关闭浮窗后通过菜单栏图标重新显示或退出。TomatoCloud 监测需要本机运行 TomatoCloud 客户端并启用系统 HTTPS 代理，否则面板会显示阻塞状态。
+
 ## 🧱 技术组成
 
 | 层 | 技术 | 职责 |
