@@ -1,6 +1,7 @@
 mod capacity;
 #[cfg(all(target_os = "windows", any(not(debug_assertions), test)))]
 mod desktop_shortcut;
+mod platform;
 mod preferences;
 mod tomato_cloud;
 mod zcode_quota;
@@ -171,7 +172,7 @@ pub fn run() {
     #[cfg(target_os = "windows")]
     configure_bundled_webview2_runtime();
 
-    let app = tauri::Builder::default()
+    let mut app = tauri::Builder::default()
         .manage(CapacityService::from_environment())
         .manage(TomatoCloudService::new())
         .manage(ZCodeQuotaService::from_environment())
@@ -210,6 +211,10 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Codex Meter");
+
+    // skipTaskbar 在 macOS 的等价物：不进 Dock，只保留菜单栏托盘图标
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
     app.run(|_, event| {
         if let tauri::RunEvent::ExitRequested {

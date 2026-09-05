@@ -28,3 +28,4 @@ CodexMeter-*-win-x64/
 *.kdbx
 credentials*.json
 secrets*.json
+.zcode/

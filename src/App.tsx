@@ -30,11 +30,13 @@ import type { FluidAccent } from "./opticalFluidRenderer";
 import {
   closeOverlaySettings,
   getOverlayWindowPosition,
+  getOverlayWorkArea,
   openOverlaySettings,
   setOverlayWindowLayout,
   setOverlayWindowPosition,
   type OverlayLayout,
   type OverlayPosition,
+  type OverlayWorkArea,
   type SettingsWindowPresentation,
 } from "./windowClient";
 
@@ -484,6 +486,12 @@ export function App({
     fromCollapsedSurface: false,
   });
   const inertiaFrameRef = useRef<number | null>(null);
+  const dragWorkAreaRef = useRef<OverlayWorkArea>({
+    left: 0,
+    top: 0,
+    width: window.screen.availWidth,
+    height: window.screen.availHeight,
+  });
   const motionSequenceRef = useRef(0);
   const previousMotionVelocityRef = useRef({ x: 0, y: 0 });
   const suppressCollapsedRestoreUntilRef = useRef(0);
@@ -609,6 +617,9 @@ export function App({
     if (target.closest("button, input, [role='dialog']") && !fromCollapsedSurface) return;
     event.preventDefault();
     stopWindowInertia();
+    void getOverlayWorkArea().then((area) => {
+      dragWorkAreaRef.current = area;
+    });
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const drag = dragRef.current;
     drag.pointerId = event.pointerId;
@@ -693,11 +704,11 @@ export function App({
     let positionX = drag.positionX;
     let positionY = drag.positionY;
     let lastFrame = performance.now();
-    const screenWithOffsets = window.screen as Screen & { availLeft?: number; availTop?: number };
-    const minimumX = screenWithOffsets.availLeft ?? 0;
-    const minimumY = screenWithOffsets.availTop ?? 0;
-    const maximumX = minimumX + window.screen.availWidth - window.outerWidth;
-    const maximumY = minimumY + window.screen.availHeight - window.outerHeight;
+    const workArea = dragWorkAreaRef.current;
+    const minimumX = workArea.left;
+    const minimumY = workArea.top;
+    const maximumX = minimumX + workArea.width - window.outerWidth;
+    const maximumY = minimumY + workArea.height - window.outerHeight;
 
     const glide = (time: number) => {
       const elapsed = Math.min(32, Math.max(8, time - lastFrame));

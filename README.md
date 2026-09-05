@@ -48,6 +48,7 @@ _图 1：Codex Meter 正常状态；TomatoCloud 显示绿色健康路由（UK ·
 
 ### 0.1.5 · 修复了部分显示错误
 
+- 更新支持 macOS：同一套 Tauri 外壳移植到 macOS 11+，浮窗驻留菜单栏（不进 Dock），Codex 与 ZCode 额度源、TomatoCloud 路由监测全部可用，提供 `.app` / `.dmg` 打包
 - 修复 TomatoCloud 短暂失败并恢复时的 stale 视觉处理，Codex 的两个液体舱不再被统一去色为月光银
 - 保留 stale 数据提示的降亮度效果，同时维持 5 小时舱 cyan 与周舱 mint 的语义色
 - 修复 ZCode 0 用量窗口触发 `CRV-508` 的问题：bigmodel 端点对未消耗的 5 小时窗口不返回 `nextResetTime`，快照不再因此整体失败，重置时间缺失时显示 `Resets —`
@@ -194,6 +195,18 @@ npm.cmd run package:installer
 ```
 
 输出位于 `release/CodexMeter-<版本>-win-x64-setup.exe`。安装器会内置 Codex 与 WebView2 运行时，并在桌面创建或替换 `Codex Meter` 快捷方式。
+
+### macOS 构建（实验性）
+
+macOS 11+（Intel 或 Apple Silicon），需要 Node.js 24、Rust 工具链和 Xcode Command Line Tools：
+
+```bash
+npm ci
+npm run tauri:dev        # 开发模式
+npm run package:app      # 构建 .app / .dmg
+```
+
+输出位于 `release/macos/Codex Meter.app`。开发构建默认使用测试夹具，连接真实 Codex 账号时设置 `CODEX_CREDITS_USE_LIVE=1`。macOS 版应用不进 Dock，只驻留菜单栏图标；关闭浮窗后通过菜单栏图标重新显示或退出。TomatoCloud 监测需要本机运行 TomatoCloud 客户端并启用系统 HTTPS 代理，否则面板会显示阻塞状态。
 
 ## 🧱 技术组成
 

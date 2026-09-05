@@ -20,7 +20,12 @@ const COUNTRY_CONNECT_TIMEOUT: &str = "1";
 const COUNTRY_MAX_TIME: &str = "2";
 const COUNTRY_ENDPOINT: &str = "https://api.country.is/";
 const HEALTH_ENDPOINT: &str = "https://www.gstatic.com/generate_204";
+
+#[cfg(target_os = "windows")]
 const REQUIRED_PROCESSES: [&str; 2] = ["tomato-cloud.exe", "tomato-dataplane-agent.exe"];
+// macOS 客户端由 tomato-cloud + 特权助手 io.tomato.cloud.helper.bundle 组成
+#[cfg(not(target_os = "windows"))]
+const REQUIRED_PROCESSES: [&str; 2] = ["tomato-cloud", "tomato-helper"];
 
 #[derive(Clone, Copy)]
 struct ProbeSettings {
@@ -102,7 +107,7 @@ impl TomatoCloudService {
             return TomatoConnectionSnapshot::blocked(
                 country_code,
                 Diagnostic::new("CRV-403", "TomatoCloud local proxy is unavailable")
-                    .with_detail("The enabled Windows HTTPS proxy is not a loopback endpoint"),
+                    .with_detail("The enabled system HTTPS proxy is not a loopback endpoint"),
             );
         }
 
@@ -164,6 +169,7 @@ struct RouteProbeResult {
     body: String,
 }
 
+#[cfg(target_os = "windows")]
 async fn read_running_processes() -> Result<HashSet<String>, Diagnostic> {
     let output = command_output(
         Command::new("tasklist.exe")
@@ -184,6 +190,28 @@ async fn read_running_processes() -> Result<HashSet<String>, Diagnostic> {
     Ok(parse_tasklist(&String::from_utf8_lossy(&output.stdout)))
 }
 
+#[cfg(not(target_os = "windows"))]
+async fn read_running_processes() -> Result<HashSet<String>, Diagnostic> {
+    let output = command_output(
+        Command::new("ps")
+            .args(["-axc", "-o", "comm"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null()),
+        PROCESS_TIMEOUT,
+        "CRV-400",
+        "Unable to inspect the TomatoCloud runtime",
+    )
+    .await?;
+    if !output.status.success() {
+        return Err(Diagnostic::new(
+            "CRV-400",
+            "Unable to inspect the TomatoCloud runtime",
+        ));
+    }
+    Ok(parse_process_list(&String::from_utf8_lossy(&output.stdout)))
+}
+
+#[cfg(target_os = "windows")]
 async fn read_system_proxy() -> Result<String, Diagnostic> {
     let output = command_output(
         Command::new("reg.exe")
@@ -237,6 +265,48 @@ async fn read_system_proxy() -> Result<String, Diagnostic> {
     })
 }
 
+#[cfg(not(target_os = "windows"))]
+async fn read_system_proxy() -> Result<String, Diagnostic> {
+    let output = command_output(
+        Command::new("scutil").arg("--proxy"),
+        REGISTRY_TIMEOUT,
+        "CRV-402",
+        "TomatoCloud local proxy is unavailable",
+    )
+    .await?;
+    if !output.status.success() {
+        return Err(
+            Diagnostic::new("CRV-402", "TomatoCloud local proxy is unavailable")
+                .with_detail("The system proxy configuration could not be read"),
+        );
+    }
+
+    extract_scutil_proxy(&String::from_utf8_lossy(&output.stdout)).ok_or_else(|| {
+        Diagnostic::new("CRV-402", "TomatoCloud local proxy is unavailable")
+            .with_detail("The enabled system HTTPS proxy is not a loopback endpoint")
+    })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn extract_scutil_proxy(raw: &str) -> Option<String> {
+    let field = |name: &str| -> Option<String> {
+        raw.lines().find_map(|line| {
+            let (key, value) = line.split_once(':')?;
+            (key.trim().eq_ignore_ascii_case(name)).then(|| value.trim().to_owned())
+        })
+    };
+    let enabled = field("HTTPSEnable")?.eq_ignore_ascii_case("1");
+    if !enabled {
+        return None;
+    }
+    let host = field("HTTPSProxy")?;
+    if host.is_empty() {
+        return None;
+    }
+    let port = field("HTTPSPort").unwrap_or_else(|| "80".to_owned());
+    Some(format!("{host}:{port}"))
+}
+
 async fn route_probe(
     proxy: &str,
     endpoint: &str,
@@ -244,7 +314,7 @@ async fn route_probe(
 ) -> Result<RouteProbeResult, Diagnostic> {
     let proxy_url = format!("http://{proxy}");
     let output = command_output(
-        Command::new("curl.exe")
+        Command::new(crate::platform::curl_executable())
             .args([
                 "--silent",
                 "--show-error",
@@ -290,6 +360,7 @@ async fn command_output(
         .map_err(|error| Diagnostic::new(code, message).with_detail(error.to_string()))
 }
 
+#[cfg(target_os = "windows")]
 fn parse_tasklist(raw: &str) -> HashSet<String> {
     raw.lines()
         .filter_map(|line| line.trim().strip_prefix('"'))
@@ -298,6 +369,15 @@ fn parse_tasklist(raw: &str) -> HashSet<String> {
         .collect()
 }
 
+#[cfg(not(target_os = "windows"))]
+fn parse_process_list(raw: &str) -> HashSet<String> {
+    raw.lines()
+        .map(|line| line.trim().to_ascii_lowercase())
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
+#[cfg(target_os = "windows")]
 fn registry_flag_is_enabled(raw: &str) -> bool {
     raw.lines().any(|line| {
         let tokens = line.split_whitespace().collect::<Vec<_>>();
@@ -308,6 +388,7 @@ fn registry_flag_is_enabled(raw: &str) -> bool {
     })
 }
 
+#[cfg(target_os = "windows")]
 fn extract_proxy_server(raw: &str) -> Option<String> {
     let value = raw
         .lines()
@@ -382,6 +463,7 @@ fn now_ms() -> u64 {
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn parses_running_processes_without_relying_on_localized_tasklist_headers() {
         let processes = parse_tasklist(
@@ -391,12 +473,47 @@ mod tests {
         assert!(processes.contains("tomato-dataplane-agent.exe"));
     }
 
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn parses_process_names_from_ps_comm_output() {
+        // 夹具取自真实 TomatoCloud macOS 客户端的 ps -axc -o comm 输出
+        let processes = parse_process_list(
+            "launchd\nWindowServer\ntomato-cloud\ntomato-helper\n\nloginwindow",
+        );
+        assert!(processes.contains("tomato-cloud"));
+        assert!(processes.contains("tomato-helper"));
+        assert!(processes.contains("loginwindow"));
+        assert!(!processes.contains(""));
+    }
+
+    #[cfg(target_os = "windows")]
     #[test]
     fn parses_a_protocol_specific_loopback_proxy() {
         let raw = "    ProxyServer    REG_SZ    http=127.0.0.1:7888;https=127.0.0.1:7888";
         assert_eq!(extract_proxy_server(raw).as_deref(), Some("127.0.0.1:7888"));
         assert!(is_loopback_proxy("127.0.0.1:7888"));
         assert!(!is_loopback_proxy("example.org:443"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn parses_a_loopback_proxy_from_scutil_output() {
+        let raw = "<dictionary> {\n  HTTPSEnable : 1\n  HTTPSPort : 7888\n  HTTPSProxy : 127.0.0.1\n  SOCKSEnable : 0\n}";
+        assert_eq!(
+            extract_scutil_proxy(raw).as_deref(),
+            Some("127.0.0.1:7888")
+        );
+        assert!(is_loopback_proxy("127.0.0.1:7888"));
+        assert!(!is_loopback_proxy("example.org:443"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn ignores_disabled_or_incomplete_scutil_proxies() {
+        let disabled = "<dictionary> {\n  HTTPSEnable : 0\n  HTTPSProxy : 127.0.0.1\n}";
+        assert_eq!(extract_scutil_proxy(disabled), None);
+        let no_proxy = "<dictionary> {\n  HTTPSEnable : 1\n}";
+        assert_eq!(extract_scutil_proxy(no_proxy), None);
     }
 
     #[test]
@@ -408,9 +525,16 @@ mod tests {
         assert_eq!(country_code_from_body(&result.body).as_deref(), Some("UK"));
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn rejects_disabled_proxy_and_malformed_probe_metadata() {
         assert!(!registry_flag_is_enabled("ProxyEnable    REG_DWORD    0x0"));
+        assert!(parse_curl_output("not a probe result").is_none());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn rejects_malformed_probe_metadata() {
         assert!(parse_curl_output("not a probe result").is_none());
     }
 }
