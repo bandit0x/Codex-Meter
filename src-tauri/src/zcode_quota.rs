@@ -192,7 +192,9 @@ fn read_config_request(
     let config_dir = lookup("CODEX_CREDITS_ZCODE_CONFIG_DIR")
         .map(PathBuf::from)
         .or_else(|| {
-            env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".zcode").join("v2"))
+            lookup("HOME")
+                .or_else(|| lookup("USERPROFILE"))
+                .map(|home| PathBuf::from(home).join(".zcode").join("v2"))
         });
     let Some(config_dir) = config_dir else {
         return Err(
@@ -258,7 +260,7 @@ fn zcode_network_failure(detail: impl Into<String>) -> Diagnostic {
 }
 
 async fn fetch_quota_body(request: &QuotaRequest) -> Result<String, Diagnostic> {
-    let mut command = Command::new("curl.exe");
+    let mut command = Command::new(crate::platform::curl_executable());
     command.args([
         "--silent",
         "--show-error",
@@ -695,6 +697,31 @@ mod tests {
             "https://open.bigmodel.cn/api/monitor/usage/quota/limit"
         );
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_quota_request_reads_config_from_home_fallback() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let home = std::env::temp_dir().join(format!("crv-zcode-home-{unique}"));
+        let config_dir = home.join(".zcode").join("v2");
+        fs::create_dir_all(&config_dir).expect("config dir");
+        fs::write(
+            config_dir.join("config.json"),
+            serde_json::to_string_pretty(&coding_plan_config(true, "home-key"))
+                .expect("config json"),
+        )
+        .expect("write config");
+        let home_for_lookup = home.clone();
+        let lookup = move |name: &str| {
+            (name == "HOME").then(|| home_for_lookup.to_string_lossy().into_owned())
+        };
+
+        let request = resolve_quota_request(&lookup).expect("resolve from home");
+        assert_eq!(request.api_key, "home-key");
+        let _ = fs::remove_dir_all(&home);
     }
 
     #[test]

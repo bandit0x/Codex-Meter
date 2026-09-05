@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    env, fs,
+    env,
     path::PathBuf,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -98,7 +98,8 @@ impl AppServerCommand {
         }
 
         Self {
-            executable: resolve_codex_executable().unwrap_or_else(|| "codex.exe".to_owned()),
+            executable: resolve_codex_executable()
+                .unwrap_or_else(|| crate::platform::codex_binary_name().to_owned()),
             args: vec!["app-server".to_owned()],
             environment: Vec::new(),
         }
@@ -135,50 +136,111 @@ fn resolve_codex_executable() -> Option<String> {
         }
     }
 
-    if let Some(executable) = find_on_path("codex.exe", env::var_os("PATH")) {
+    if let Some(executable) =
+        find_on_path(crate::platform::codex_binary_name(), env::var_os("PATH"))
+    {
         return Some(executable.to_string_lossy().into_owned());
     }
 
-    let program_files = env::var_os("ProgramFiles")?;
-    let windows_apps = PathBuf::from(program_files).join("WindowsApps");
-    let mut candidates = fs::read_dir(windows_apps)
-        .ok()?
-        .filter_map(Result::ok)
-        .filter(|entry| {
-            entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with("OpenAI.Codex_")
-        })
-        .map(|entry| entry.path().join("app").join("resources").join("codex.exe"))
-        .filter(|path| path.is_file())
-        .collect::<Vec<_>>();
-    candidates.sort();
-    candidates
-        .pop()
+    extra_executable_candidates()
+        .into_iter()
+        .find(|candidate| candidate.is_file())
         .map(|path| path.to_string_lossy().into_owned())
 }
 
 fn local_runtime_candidates() -> Vec<PathBuf> {
-    let relative = PathBuf::from("node_modules")
-        .join("@openai")
-        .join("codex-win32-x64")
-        .join("vendor")
-        .join("x86_64-pc-windows-msvc")
-        .join("bin")
-        .join("codex.exe");
     let mut candidates = Vec::new();
 
     if let Ok(current_exe) = env::current_exe() {
         if let Some(parent) = current_exe.parent() {
-            candidates.push(parent.join("codex-runtime").join("bin").join("codex.exe"));
+            candidates.push(
+                parent
+                    .join("codex-runtime")
+                    .join("bin")
+                    .join(crate::platform::codex_binary_name()),
+            );
         }
     }
-    candidates.push(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join(relative),
-    );
+    candidates.push(project_local_runtime());
+    candidates
+}
+
+/// The `@openai/codex` npm package ships a vendored CLI per platform; pick the
+/// one matching this machine's vendor triple.
+fn project_local_runtime() -> PathBuf {
+    let packages = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("node_modules")
+        .join("@openai");
+    if cfg!(target_os = "windows") {
+        return packages
+            .join("codex-win32-x64")
+            .join("vendor")
+            .join("x86_64-pc-windows-msvc")
+            .join("bin")
+            .join("codex.exe");
+    }
+    if cfg!(target_os = "macos") {
+        let (package, vendor) = if cfg!(target_arch = "aarch64") {
+            ("codex-darwin-arm64", "aarch64-apple-darwin")
+        } else {
+            ("codex-darwin-x64", "x86_64-apple-darwin")
+        };
+        return packages
+            .join(package)
+            .join("vendor")
+            .join(vendor)
+            .join("bin")
+            .join("codex");
+    }
+    packages
+        .join("codex-linux-x64")
+        .join("vendor")
+        .join("x86_64-unknown-linux-musl")
+        .join("bin")
+        .join("codex")
+}
+
+#[cfg(target_os = "windows")]
+fn extra_executable_candidates() -> Vec<PathBuf> {
+    let program_files = match env::var_os("ProgramFiles") {
+        Some(program_files) => PathBuf::from(program_files),
+        None => return Vec::new(),
+    };
+    let windows_apps = program_files.join("WindowsApps");
+    let mut candidates = std::fs::read_dir(windows_apps)
+        .ok()
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| {
+                    entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with("OpenAI.Codex_")
+                })
+                .map(|entry| entry.path().join("app").join("resources").join("codex.exe"))
+                .filter(|path| path.is_file())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    candidates.sort();
+    candidates
+}
+
+#[cfg(not(target_os = "windows"))]
+fn extra_executable_candidates() -> Vec<PathBuf> {
+    // Finder 启动的 .app 拿不到登录 shell 的 PATH，补查常见安装位置
+    let binary = crate::platform::codex_binary_name();
+    let mut candidates = vec![
+        PathBuf::from("/opt/homebrew/bin").join(binary),
+        PathBuf::from("/usr/local/bin").join(binary),
+    ];
+    if let Some(home) = env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local/bin").join(binary));
+        candidates.push(home.join("bin").join(binary));
+    }
     candidates
 }
 
@@ -482,6 +544,7 @@ fn normalize_window(window: QuotaWindowWire) -> Result<QuotaWindow, Diagnostic> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn classifies_short_and_long_windows_without_clamping() {
@@ -618,11 +681,41 @@ mod tests {
 
     #[test]
     fn project_local_official_runtime_is_preferred_when_installed() {
+        let expected = if cfg!(target_os = "windows") {
+            "codex-win32-x64".to_owned()
+        } else if cfg!(target_os = "macos") {
+            format!(
+                "codex-darwin-{}",
+                if cfg!(target_arch = "aarch64") {
+                    "arm64"
+                } else {
+                    "x64"
+                }
+            )
+        } else {
+            "codex-linux-x64".to_owned()
+        };
+
         let candidates = local_runtime_candidates();
         assert!(candidates.iter().any(|candidate| {
             candidate
                 .to_string_lossy()
-                .contains("node_modules\\@openai\\codex-win32-x64")
+                .contains(expected.as_str())
         }));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn finder_fallback_candidates_cover_common_unix_install_locations() {
+        let binary = crate::platform::codex_binary_name();
+        let candidates = extra_executable_candidates();
+
+        assert!(candidates.contains(&PathBuf::from("/opt/homebrew/bin").join(binary)));
+        assert!(candidates.contains(&PathBuf::from("/usr/local/bin").join(binary)));
+        if let Some(home) = env::var_os("HOME") {
+            let home = PathBuf::from(home);
+            assert!(candidates.contains(&home.join(".local/bin").join(binary)));
+            assert!(candidates.contains(&home.join("bin").join(binary)));
+        }
     }
 }
