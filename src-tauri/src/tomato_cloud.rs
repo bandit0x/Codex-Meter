@@ -23,8 +23,9 @@ const HEALTH_ENDPOINT: &str = "https://www.gstatic.com/generate_204";
 
 #[cfg(target_os = "windows")]
 const REQUIRED_PROCESSES: [&str; 2] = ["tomato-cloud.exe", "tomato-dataplane-agent.exe"];
+// macOS 客户端由 tomato-cloud + 特权助手 io.tomato.cloud.helper.bundle 组成
 #[cfg(not(target_os = "windows"))]
-const REQUIRED_PROCESSES: [&str; 2] = ["tomato-cloud", "tomato-dataplane-agent"];
+const REQUIRED_PROCESSES: [&str; 2] = ["tomato-cloud", "tomato-helper"];
 
 #[derive(Clone, Copy)]
 struct ProbeSettings {
@@ -475,11 +476,12 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn parses_process_names_from_ps_comm_output() {
+        // 夹具取自真实 TomatoCloud macOS 客户端的 ps -axc -o comm 输出
         let processes = parse_process_list(
-            "launchd\nWindowServer\ntomato-cloud\nTomato Dataplane Agent\n\nloginwindow",
+            "launchd\nWindowServer\ntomato-cloud\ntomato-helper\n\nloginwindow",
         );
         assert!(processes.contains("tomato-cloud"));
-        assert!(processes.contains("tomato dataplane agent"));
+        assert!(processes.contains("tomato-helper"));
         assert!(processes.contains("loginwindow"));
         assert!(!processes.contains(""));
     }
